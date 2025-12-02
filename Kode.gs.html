@@ -1,6 +1,6 @@
 /**
- * APLIKASI DATABASE SISWA MULTI-SEKOLAH (SaaS Mini)
- * Fitur: Login, Register NPSN, CRUD Siswa, Pencarian Publik
+ * APLIKASI DATABASE SISWA MULTI-SEKOLAH (Distributed Architecture)
+ * File: Kode.gs
  */
 
 function doGet() {
@@ -11,20 +11,27 @@ function doGet() {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// --- 1. OTENTIKASI (LOGIN & REGISTER) ---
+// Fungsi Helper untuk memisahkan file HTML/CSS/JS
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename)
+      .getContent();
+}
+
+// --- 1. OTENTIKASI ADMIN ---
 
 function loginAdmin(username, password) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Admin');
   const data = sheet.getDataRange().getValues();
   
-  // Loop data admin (skip header)
+  // Kolom: [User, Pass, SekolahID, Nama, NPSN, SpreadsheetID, AccessCode]
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] == username && data[i][1] == password) {
       return { 
         status: 'success', 
         sekolahID: data[i][2], 
-        namaSekolah: data[i][3] 
+        namaSekolah: data[i][3],
+        accessCode: data[i][6] || 'BELUM_ADA'
       };
     }
   }
@@ -36,134 +43,201 @@ function registrasiSekolah(form) {
   const sheet = ss.getSheetByName('Admin');
   const data = sheet.getDataRange().getValues();
   
-  // Validasi Input
   if(form.regNpsn == "" || form.regNama == "" || form.regUser == "" || form.regPass == ""){
     return { status: 'error', message: 'Semua kolom wajib diisi!' };
   }
 
-  // Cek Duplikasi Username & NPSN
+  // Cek Duplikasi
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] == form.regUser) return { status: 'error', message: 'Username sudah dipakai.' };
     if (data[i][4] == form.regNpsn) return { status: 'error', message: 'NPSN sudah terdaftar.' };
   }
 
-  // Generate ID Unik (SCH + Timestamp)
-  const uniqueID = "SCH-" + new Date().getTime().toString().substr(-6);
+  try {
+    // 1. Buat Spreadsheet Database Baru
+    const dbName = "DB_SISWA_" + form.regNama + "_" + form.regNpsn;
+    const newSS = SpreadsheetApp.create(dbName);
+    const newId = newSS.getId();
+    
+    // 2. Setup Header DataSiswa
+    const newSheet = newSS.getSheets()[0];
+    newSheet.setName("DataSiswa");
+    const headers = [
+      "NISN", "Nama Lengkap", "NIK", "Tempat Lahir", "Tgl Lahir", 
+      "Rombel", "Umur", "Status", "JK", "Alamat", 
+      "No Telp", "Keb Khusus", "Disabilitas", "No KIP", 
+      "Ayah", "Ibu", "Wali", "Created_At"
+    ];
+    newSheet.appendRow(headers);
 
-  // Simpan Sekolah Baru
-  sheet.appendRow([
-    form.regUser,     // A: Username
-    form.regPass,     // B: Password
-    uniqueID,         // C: SekolahID
-    form.regNama,     // D: Nama Sekolah
-    "'" + form.regNpsn // E: NPSN (String)
-  ]);
+    // 3. Simpan Akun ke Admin Utama
+    const uniqueID = "SCH-" + new Date().getTime().toString().substr(-6);
+    const accessCode = generateRandomCode(8); // Kode Akses 8 Digit
 
-  return { status: 'success', message: 'Pendaftaran Berhasil! Silakan Login.' };
+    sheet.appendRow([
+      form.regUser,      // 0
+      form.regPass,      // 1
+      uniqueID,          // 2
+      form.regNama,      // 3
+      "'" + form.regNpsn,// 4
+      newId,             // 5: Spreadsheet ID
+      accessCode         // 6: Access Code
+    ]);
+
+    return { status: 'success', message: 'Registrasi Berhasil! Silakan Login.' };
+
+  } catch (e) {
+    return { status: 'error', message: 'Gagal: ' + e.toString() };
+  }
 }
 
-// --- 2. MANAJEMEN DATA SISWA ---
+// --- 2. FITUR PUBLIK (NPSN) ---
 
-function getDataSiswa(sekolahID) {
+function getSchoolByNPSN(npsn) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('DataSiswa');
+  const sheet = ss.getSheetByName('Admin');
   const data = sheet.getDataRange().getValues();
-  const result = [];
   
-  // Filter berdasarkan SekolahID (Kolom Index 17)
+  let targetSSId = null;
+  let namaSekolah = "";
+  
   for (let i = 1; i < data.length; i++) {
-    if (data[i][17] == sekolahID) { 
-      result.push({
-        nisn: data[i][0],
-        nama: data[i][1],
-        nik: data[i][2],
-        tempatLahir: data[i][3],
-        tglLahir: mapDate(data[i][4]), // Format tanggal YYYY-MM-DD
-        rombel: data[i][5],
-        umur: data[i][6],
-        status: data[i][7],
-        jk: data[i][8],
-        alamat: data[i][9],
-        telp: data[i][10],
-        kebKhusus: data[i][11],
-        disabilitas: data[i][12],
-        kip: data[i][13],
-        ayah: data[i][14],
-        ibu: data[i][15],
-        wali: data[i][16]
+    if (data[i][4] == npsn) {
+      targetSSId = data[i][5];
+      namaSekolah = data[i][3];
+      break;
+    }
+  }
+  
+  if (!targetSSId) return { found: false, message: "NPSN tidak ditemukan." };
+  
+  try {
+    const db = SpreadsheetApp.openById(targetSSId);
+    const rows = db.getSheetByName('DataSiswa').getDataRange().getValues();
+    const publicData = [];
+    
+    // Return data terbatas (Nama, NISN, Kelas, Status)
+    for (let i = 1; i < rows.length; i++) {
+      publicData.push({
+        nisn: rows[i][0],
+        nama: rows[i][1],
+        rombel: rows[i][5],
+        status: rows[i][7]
       });
     }
+    return { found: true, namaSekolah: namaSekolah, data: publicData };
+  } catch(e) {
+    return { found: false, message: "Database sekolah tidak dapat diakses." };
+  }
+}
+
+// --- 3. FITUR DETAIL (KODE AKSES) ---
+
+function verifyAndGetDetail(npsn, nisn, inputCode) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Admin');
+  const data = sheet.getDataRange().getValues();
+  
+  let targetSSId = null;
+  let correctCode = null;
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][4] == npsn) {
+      targetSSId = data[i][5];
+      correctCode = data[i][6];
+      break;
+    }
+  }
+  
+  if (!targetSSId) return { success: false, message: "Sekolah error." };
+  
+  if (String(inputCode).toUpperCase() !== String(correctCode).toUpperCase()) {
+    return { success: false, message: "Kode Akses Salah!" };
+  }
+  
+  try {
+    const db = SpreadsheetApp.openById(targetSSId);
+    const rows = db.getSheetByName('DataSiswa').getDataRange().getValues();
+    
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] == nisn) {
+        return {
+          success: true,
+          data: {
+            nisn: rows[i][0], nama: rows[i][1], nik: rows[i][2],
+            tempatLahir: rows[i][3], tglLahir: mapDate(rows[i][4]),
+            rombel: rows[i][5], umur: rows[i][6], status: rows[i][7],
+            jk: rows[i][8], alamat: rows[i][9], telp: rows[i][10],
+            kebKhusus: rows[i][11], disabilitas: rows[i][12], kip: rows[i][13],
+            ayah: rows[i][14], ibu: rows[i][15], wali: rows[i][16]
+          }
+        };
+      }
+    }
+    return { success: false, message: "Data siswa tidak ditemukan." };
+  } catch(e) {
+    return { success: false, message: "Terjadi kesalahan sistem." };
+  }
+}
+
+// --- 4. CRUD ADMIN ---
+
+function getDataSiswa(sekolahID) {
+  const dbId = getSchoolDbId(sekolahID);
+  if(!dbId) return [];
+  
+  try {
+    const db = SpreadsheetApp.openById(dbId);
+    const rows = db.getSheetByName('DataSiswa').getDataRange().getValues();
+    const result = [];
+    for (let i = 1; i < rows.length; i++) {
+      result.push({
+        nisn: rows[i][0], nama: rows[i][1], rombel: rows[i][5], status: rows[i][7]
+      });
+    }
+    return result;
+  } catch(e) { return []; }
+}
+
+function tambahSiswa(f) {
+  const dbId = getSchoolDbId(f.sekolahID);
+  if (!dbId) return "Error: Database tidak ditemukan.";
+
+  try {
+    const targetSS = SpreadsheetApp.openById(dbId);
+    const sheet = targetSS.getSheetByName('DataSiswa');
+    sheet.appendRow([
+      "'" + f.nisn, f.nama, "'" + f.nik, f.tempatLahir, f.tglLahir,
+      f.rombel, f.umur, f.status, f.jk, f.alamat, f.telp,
+      f.kebKhusus, f.disabilitas, f.kip, f.ayah, f.ibu, f.wali, new Date()
+    ]);
+    return "Data Siswa Berhasil Disimpan!";
+  } catch(e) { return "Gagal menyimpan: " + e.message; }
+}
+
+// Helpers
+function getSchoolDbId(sekolahID) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const rows = ss.getSheetByName('Admin').getDataRange().getValues();
+  for(let i=1; i<rows.length; i++){
+    if(rows[i][2] == sekolahID) return rows[i][5];
+  }
+  return null;
+}
+
+function generateRandomCode(length) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
 }
 
-function tambahSiswa(f) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('DataSiswa');
-  
-  // Tambahkan kutip (') pada angka panjang (NISN/NIK) agar tidak jadi scientific notation
-  sheet.appendRow([
-    "'" + f.nisn,
-    f.nama,
-    "'" + f.nik,
-    f.tempatLahir,
-    f.tglLahir,
-    f.rombel,
-    f.umur,
-    f.status,
-    f.jk,
-    f.alamat,
-    f.telp,
-    f.kebKhusus,
-    f.disabilitas,
-    f.kip,
-    f.ayah,
-    f.ibu,
-    f.wali,
-    f.sekolahID // ID Sekolah otomatis dari session
-  ]);
-  
-  return "Data Siswa Berhasil Disimpan!";
-}
-
-// --- 3. PENCARIAN PUBLIK ---
-
-function cariSiswaPublik(nisn) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('DataSiswa');
-  const data = sheet.getDataRange().getValues();
-  
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] == nisn) { // Cek NISN
-      return {
-        found: true,
-        nama: data[i][1],
-        rombel: data[i][5],
-        status: data[i][7],
-        sekolah: getNamaSekolah(data[i][17])
-      };
-    }
-  }
-  return { found: false };
-}
-
-// Helper: Ambil Nama Sekolah by ID
-function getNamaSekolah(id) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Admin');
-  const data = sheet.getDataRange().getValues();
-  for(let i=1; i<data.length; i++){
-    if(data[i][2] == id) return data[i][3];
-  }
-  return "Tidak Diketahui";
-}
-
-// Helper: Format Tanggal untuk HTML Input Date
 function mapDate(dateObj) {
   if (!dateObj) return "";
   try {
     const d = new Date(dateObj);
-    // Mengatasi zona waktu, ambil YYYY-MM-DD
     const offset = d.getTimezoneOffset();
     const yourDate = new Date(d.getTime() - (offset*60*1000));
     return yourDate.toISOString().split('T')[0];
