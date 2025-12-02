@@ -188,10 +188,27 @@ function tambahSiswa(f) {
   try {
     const targetSS = SpreadsheetApp.openById(dbId);
     const sheet = targetSS.getSheetByName('DataSiswa');
+    
+    // UPDATE: Menambahkan kutip satu (') pada NISN, NIK, dan Telp
     sheet.appendRow([
-      "'" + f.nisn, f.nama, "'" + f.nik, f.tempatLahir, f.tglLahir,
-      f.rombel, f.umur, f.status, f.jk, f.alamat, f.telp,
-      f.kebKhusus, f.disabilitas, f.kip, f.ayah, f.ibu, f.wali, new Date()
+      "'" + f.nisn,             // Kolom 1: NISN
+      f.nama,                   // Kolom 2: Nama
+      "'" + f.nik,              // Kolom 3: NIK
+      f.tempatLahir, 
+      f.tglLahir,
+      f.rombel, 
+      f.umur, 
+      f.status, 
+      f.jk, 
+      f.alamat, 
+      "'" + f.telp,             // Kolom 11: No Telp (FORMAT TEKS)
+      f.kebKhusus, 
+      f.disabilitas, 
+      f.kip, 
+      f.ayah, 
+      f.ibu, 
+      f.wali, 
+      new Date()
     ]);
     return "Data Siswa Berhasil Disimpan!";
   } catch(e) { return "Gagal menyimpan: " + e.message; }
@@ -230,10 +247,27 @@ function editSiswa(f) {
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]) == String(searchKey)) {
         const rowNum = i + 1;
+        
+        // UPDATE: Menambahkan kutip satu (') pada NISN, NIK, dan Telp
         const updatedRow = [
-          "'" + f.nisn, f.nama, "'" + f.nik, f.tempatLahir, f.tglLahir,
-          f.rombel, f.umur, f.status, f.jk, f.alamat, f.telp,
-          f.kebKhusus, f.disabilitas, f.kip, f.ayah, f.ibu, f.wali, new Date()
+          "'" + f.nisn,          // Kolom 1
+          f.nama, 
+          "'" + f.nik,           // Kolom 3
+          f.tempatLahir, 
+          f.tglLahir,
+          f.rombel, 
+          f.umur, 
+          f.status, 
+          f.jk, 
+          f.alamat, 
+          "'" + f.telp,          // Kolom 11 (FORMAT TEKS)
+          f.kebKhusus, 
+          f.disabilitas, 
+          f.kip, 
+          f.ayah, 
+          f.ibu, 
+          f.wali, 
+          new Date()
         ];
         sheet.getRange(rowNum, 1, 1, updatedRow.length).setValues([updatedRow]);
         return "Data Berhasil Diperbarui!";
@@ -241,6 +275,58 @@ function editSiswa(f) {
     }
     return "Data tidak ditemukan untuk diedit.";
   } catch(e) { return "Gagal update: " + e.message; }
+}
+
+// --- 5. FUNGSI IMPORT EXCEL ---
+
+function importBulkSiswa(payload) {
+  const sekolahID = payload.sekolahID;
+  const dataSiswa = payload.data;
+  
+  if (!dataSiswa || dataSiswa.length === 0) return {status: 'error', message: "Data kosong."};
+
+  const dbId = getSchoolDbId(sekolahID);
+  if (!dbId) return {status: 'error', message: "Database sekolah tidak ditemukan."};
+
+  try {
+    const targetSS = SpreadsheetApp.openById(dbId);
+    const sheet = targetSS.getSheetByName('DataSiswa');
+    
+    // Siapkan Array 2D untuk insert sekaligus
+    const rowsToAdd = dataSiswa.map(s => {
+      return [
+        "'" + s.nisn,      // Col 1: NISN (Text)
+        s.nama,
+        "'" + s.nik,       // Col 3: NIK (Text)
+        s.tempatLahir,
+        s.tglLahir,
+        s.rombel,
+        s.umur,
+        s.status,
+        s.jk,
+        s.alamat,
+        "'" + s.telp,      // Col 11: No Telp (Text)
+        s.kebKhusus,
+        s.disabilitas,
+        s.kip,
+        s.ayah,
+        s.ibu,
+        s.wali,
+        new Date()
+      ];
+    });
+
+    const lastRow = sheet.getLastRow();
+    sheet.getRange(lastRow + 1, 1, rowsToAdd.length, rowsToAdd[0].length).setValues(rowsToAdd);
+    
+    return {
+      status: 'success', 
+      message: `Berhasil mengimport ${rowsToAdd.length} siswa.`
+    };
+
+  } catch (e) {
+    return {status: 'error', message: "Gagal import: " + e.message};
+  }
 }
 
 // Helpers
