@@ -1,0 +1,194 @@
+<script>
+  let currentNpsn = "";
+  let selectedNisn = "";
+  let sessionSchoolID = "";
+
+  // --- NAVIGATION LOGIC ---
+  function showAdminLogin() {
+    document.getElementById('viewLanding').classList.add('d-none');
+    document.getElementById('viewPublicList').classList.add('d-none');
+    document.getElementById('viewAdminAuth').classList.remove('d-none');
+    document.getElementById('btnAdminLink').classList.add('d-none');
+  }
+
+  function resetView() {
+    document.getElementById('viewLanding').classList.remove('d-none');
+    document.getElementById('viewPublicList').classList.add('d-none');
+    document.getElementById('viewAdminAuth').classList.add('d-none');
+    document.getElementById('btnAdminLink').classList.remove('d-none');
+    document.getElementById('inputNpsn').value = "";
+    currentNpsn = "";
+  }
+  
+  function toggleAuth(type) {
+    if(type==='register'){
+       document.getElementById('loginPanel').classList.add('d-none');
+       document.getElementById('registerPanel').classList.remove('d-none');
+    } else {
+       document.getElementById('registerPanel').classList.add('d-none');
+       document.getElementById('loginPanel').classList.remove('d-none');
+    }
+  }
+
+  function hitungUmur() {
+    const dob = document.getElementById('inputTglLahir').value;
+    if(dob) {
+      const birthDate = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+      document.getElementById('inputUmur').value = age;
+    }
+  }
+
+  function logout() { location.reload(); }
+
+  // --- 1. PUBLIC SEARCH (NPSN) ---
+  function searchByNPSN() {
+    const npsn = document.getElementById('inputNpsn').value;
+    if(!npsn) return Swal.fire('Error','Masukkan NPSN dulu','warning');
+    
+    Swal.fire({title:'Mencari Sekolah...', didOpen:()=>Swal.showLoading()});
+    
+    google.script.run.withSuccessHandler(res => {
+      Swal.close();
+      if(res.found) {
+        currentNpsn = npsn;
+        document.getElementById('publicSchoolName').innerText = res.namaSekolah;
+        document.getElementById('publicNpsnBadge').innerText = "NPSN: " + npsn;
+        renderPublicTable(res.data);
+        document.getElementById('viewLanding').classList.add('d-none');
+        document.getElementById('viewPublicList').classList.remove('d-none');
+      } else {
+        Swal.fire('Tidak Ditemukan', res.message, 'error');
+      }
+    }).getSchoolByNPSN(npsn);
+  }
+
+  function renderPublicTable(data) {
+    const tbody = document.getElementById('publicTableBody');
+    tbody.innerHTML = '';
+    
+    if(data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">Belum ada data.</td></tr>';
+      return;
+    }
+
+    data.forEach((row, index) => {
+      let badge = row.status === 'Aktif' ? 'bg-success' : 'bg-secondary';
+      tbody.innerHTML += `
+        <tr>
+          <td class="ps-3">${index + 1}</td>
+          <td class="fw-bold">${row.nama}</td>
+          <td>${row.nisn}</td>
+          <td>${row.rombel}</td>
+          <td><span class="badge ${badge} status-badge">${row.status}</span></td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-warning text-white rounded-circle shadow-sm" onclick="promptCode('${row.nisn}')">
+              <i class="fas fa-eye"></i>
+            </button>
+          </td>
+        </tr>`;
+    });
+  }
+
+  // --- 2. SECURE DETAIL VIEW ---
+  function promptCode(nisn) {
+    selectedNisn = nisn;
+    document.getElementById('inputAccessCode').value = "";
+    new bootstrap.Modal(document.getElementById('accessCodeModal')).show();
+  }
+
+  function verifyCode() {
+    const code = document.getElementById('inputAccessCode').value;
+    if(code.length < 8) return Swal.fire('Error', 'Kode harus 8 karakter', 'warning');
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('accessCodeModal'));
+    modal.hide();
+
+    Swal.fire({title:'Verifikasi...', didOpen:()=>Swal.showLoading()});
+
+    google.script.run.withSuccessHandler(res => {
+      Swal.close();
+      if(res.success) showDetailModal(res.data);
+      else Swal.fire('Akses Ditolak', res.message, 'error');
+    }).verifyAndGetDetail(currentNpsn, selectedNisn, code);
+  }
+
+  function showDetailModal(s) {
+    const html = `
+      <div class="table-responsive">
+      <table class="table table-striped table-borderless mb-0">
+        <tr><th class="ps-4 w-35 text-muted">Nama</th><td class="fw-bold">${s.nama}</td></tr>
+        <tr><th class="ps-4 text-muted">NISN/NIK</th><td>${s.nisn} <br><small>${s.nik}</small></td></tr>
+        <tr><th class="ps-4 text-muted">TTL</th><td>${s.tempatLahir}, ${s.tglLahir} (${s.umur} th)</td></tr>
+        <tr><th class="ps-4 text-muted">Kelas</th><td>${s.rombel} <span class="badge bg-primary ms-2">${s.status}</span></td></tr>
+        <tr><td colspan="2"><hr class="my-1"></td></tr>
+        <tr><th class="ps-4 text-muted">Ortu</th><td>Ayah: ${s.ayah}<br>Ibu: ${s.ibu}</td></tr>
+        <tr><th class="ps-4 text-muted">Alamat</th><td>${s.alamat}</td></tr>
+      </table></div>`;
+    document.getElementById('detailContent').innerHTML = html;
+    new bootstrap.Modal(document.getElementById('detailModal')).show();
+  }
+
+  // --- 3. ADMIN LOGIC ---
+  function handleLogin(e) {
+    e.preventDefault();
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    
+    Swal.fire({title:'Login...', didOpen:()=>Swal.showLoading()});
+    
+    google.script.run.withSuccessHandler(res => {
+      Swal.close();
+      if(res.status === 'success') {
+        sessionSchoolID = res.sekolahID;
+        document.getElementById('formSekolahID').value = res.sekolahID;
+        document.getElementById('dashSchoolName').innerText = res.namaSekolah;
+        document.getElementById('dashAccessCode').innerText = res.accessCode;
+        
+        document.getElementById('viewAdminAuth').classList.add('d-none');
+        document.getElementById('viewAdminDashboard').classList.remove('d-none');
+        document.getElementById('btnLogout').classList.remove('d-none');
+        loadAdminData();
+      } else Swal.fire('Gagal', 'Username/Password salah', 'error');
+    }).loginAdmin(u, p);
+  }
+
+  function handleRegister(e) {
+    e.preventDefault();
+    Swal.fire({title:'Mendaftarkan...', didOpen:()=>Swal.showLoading()});
+    google.script.run.withSuccessHandler(res=>{
+      Swal.close();
+      if(res.status==='success'){
+        Swal.fire('Sukses',res.message,'success');
+        document.getElementById('formRegistrasi').reset();
+        toggleAuth('login');
+      } else Swal.fire('Gagal',res.message,'error');
+    }).registrasiSekolah(document.getElementById('formRegistrasi'));
+  }
+
+  function loadAdminData() {
+    google.script.run.withSuccessHandler(data => {
+      const tbody = document.getElementById('adminTableBody');
+      tbody.innerHTML = '';
+      data.forEach(r => {
+        tbody.innerHTML += `<tr><td>${r.nisn}</td><td>${r.nama}</td><td>${r.rombel}</td><td>${r.status}</td></tr>`;
+      });
+    }).getDataSiswa(sessionSchoolID);
+  }
+
+  function handleAddStudent(e) {
+    e.preventDefault();
+    bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
+    Swal.fire({title:'Menyimpan...', didOpen:()=>Swal.showLoading()});
+    
+    google.script.run.withSuccessHandler(res => {
+      Swal.close();
+      Swal.fire('Berhasil', res, 'success');
+      document.getElementById('addStudentForm').reset();
+      loadAdminData();
+    }).tambahSiswa(document.getElementById('addStudentForm'));
+  }
+</script>
