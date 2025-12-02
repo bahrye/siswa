@@ -108,7 +108,7 @@
 
   <div id="viewAdminDashboard" class="d-none animate-fade">
     <div class="glass-panel p-4">
-      <div class="alert alert-info border-0 shadow-sm d-flex align-items-center justify-content-between">
+      <div class="alert alert-info border-0 shadow-sm d-flex align-items-center justify-content-between mb-4">
         <div>
           <h4 class="alert-heading fw-bold mb-0" id="dashSchoolName">Sekolah</h4>
           <p class="mb-0 small">Bagikan Kode Akses ini untuk publik melihat detail.</p>
@@ -119,19 +119,82 @@
         </div>
       </div>
 
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="fw-bold">Data Siswa (Admin View)</h5>
-        <button class="btn btn-primary rounded-pill btn-sm" data-bs-toggle="modal" data-bs-target="#addModal">
-          <i class="fas fa-plus me-1"></i> Tambah
-        </button>
+      <div class="card border-0 shadow-sm mb-4 bg-light">
+        <div class="card-body py-3">
+          <div class="row g-2 align-items-end">
+             <div class="col-md-3">
+               <label class="small fw-bold text-muted">Filter Kelas</label>
+               <select id="filterRombel" class="form-select form-select-sm" onchange="applyAdminFilter()">
+                 <option value="">Semua Kelas</option>
+               </select>
+             </div>
+             <div class="col-md-2">
+               <label class="small fw-bold text-muted">Gender</label>
+               <select id="filterJK" class="form-select form-select-sm" onchange="applyAdminFilter()">
+                 <option value="">Semua</option>
+                 <option value="L">Laki-laki</option>
+                 <option value="P">Perempuan</option>
+               </select>
+             </div>
+             <div class="col-md-4">
+               <label class="small fw-bold text-muted">Usia (Tahun)</label>
+               <div class="input-group input-group-sm">
+                 <input type="number" id="filterUmurMin" class="form-control" placeholder="Min" onkeyup="applyAdminFilter()">
+                 <span class="input-group-text">-</span>
+                 <input type="number" id="filterUmurMax" class="form-control" placeholder="Max" onkeyup="applyAdminFilter()">
+               </div>
+             </div>
+             <div class="col-md-3 text-end">
+                <button class="btn btn-primary rounded-pill btn-sm w-100" onclick="prepareAddModal()">
+                  <i class="fas fa-plus me-1"></i> Tambah Siswa
+                </button>
+             </div>
+          </div>
+        </div>
       </div>
       
-      <div class="table-responsive bg-white rounded shadow-sm">
+      <div class="table-responsive bg-white rounded shadow-sm mb-4">
         <table class="table table-hover align-middle mb-0">
-          <thead class="bg-light"><tr><th>NISN</th><th>Nama</th><th>Kelas</th><th>Status</th></tr></thead>
+          <thead class="bg-light">
+            <tr>
+              <th>NISN</th><th>Nama</th><th>L/P</th><th>Usia (Detail)</th><th>Kelas</th><th>Status</th>
+              <th class="text-center" style="width: 140px;">Aksi</th>
+            </tr>
+          </thead>
           <tbody id="adminTableBody"></tbody>
         </table>
+        <div id="tableCounter" class="p-2 text-center text-muted small mt-2"></div>
       </div>
+
+      <div class="card border-0 shadow-sm bg-light">
+        <div class="card-body">
+          <h5 class="fw-bold text-primary mb-3"><i class="fas fa-chart-pie me-2"></i>Detail Ringkasan Data</h5>
+          <div class="row">
+            <div class="col-md-12 mb-2">
+              <span class="fw-bold text-secondary" id="sumLabelClass">Kelas : Loading...</span>
+            </div>
+            <div class="col-md-4">
+              <div class="d-flex justify-content-between align-items-center bg-white p-2 rounded border">
+                <span id="sumLabelL">Jumlah Laki-Laki :</span>
+                <span class="fw-bold fs-5 text-primary" id="sumCountL">0</span>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="d-flex justify-content-between align-items-center bg-white p-2 rounded border">
+                <span id="sumLabelP">Jumlah Perempuan :</span>
+                <span class="fw-bold fs-5 text-danger" id="sumCountP">0</span>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="d-flex justify-content-between align-items-center bg-white p-2 rounded border">
+                <span>Total Siswa :</span>
+                <span class="fw-bold fs-5 text-success" id="sumCountTotal">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -144,7 +207,7 @@
       <div class="modal-body">
         <i class="fas fa-lock fa-3x text-warning mb-3"></i>
         <h5 class="fw-bold">Akses Terbatas</h5>
-        <p class="small text-muted">Masukkan 8 digit kode akses sekolah. Silahkan minta ke admin sekolah.</p>
+        <p class="small text-muted">Masukkan 8 digit kode akses sekolah.</p>
         <input type="text" id="inputAccessCode" class="form-control text-center fw-bold text-uppercase mb-3" placeholder="X X X X X X X X" maxlength="8">
         <button class="btn btn-primary w-100 rounded-pill" onclick="verifyCode()">BUKA DATA</button>
       </div>
@@ -156,7 +219,7 @@
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-light">
-        <h5 class="modal-title fw-bold"><i class="fas fa-id-card me-2 text-primary"></i>Detail Siswa</h5>
+        <h5 class="modal-title fw-bold"><i class="fas fa-id-card me-2 text-primary"></i>Detail Lengkap Siswa</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-0" id="detailContent"></div>
@@ -168,12 +231,15 @@
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header bg-light">
-        <h5 class="modal-title fw-bold">Input Data Siswa Lengkap</h5>
+        <h5 class="modal-title fw-bold">Input Data Siswa</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body bg-white">
-        <form id="addStudentForm" onsubmit="handleAddStudent(event)">
+        <form id="addStudentForm" onsubmit="handleSaveStudent(event)">
           <input type="hidden" id="formSekolahID" name="sekolahID">
+          <input type="hidden" id="formMode" value="add">
+          <input type="hidden" id="oldNisn" name="oldNisn">
+
           <div class="section-title text-primary fw-bold border-bottom pb-2 mb-3">1. Data Identitas</div>
           <div class="row g-3 mb-4">
             <div class="col-md-6"><label class="small fw-bold">Nama Lengkap</label><input type="text" name="nama" class="form-control" required></div>
@@ -186,10 +252,13 @@
           <div class="section-title text-primary fw-bold border-bottom pb-2 mb-3">2. Akademik</div>
           <div class="row g-3 mb-4">
             <div class="col-md-4"><label class="small fw-bold">Kelas</label><input type="text" name="rombel" class="form-control" required></div>
-            <div class="col-md-2"><label class="small fw-bold">Umur</label><input type="number" name="umur" id="inputUmur" class="form-control bg-light" readonly></div>
+            <div class="col-md-2"><label class="small fw-bold">Umur</label><input type="text" name="umur" id="inputUmur" class="form-control bg-light" readonly></div>
             <div class="col-md-6"><label class="small fw-bold">Status</label>
-              <select name="status" class="form-select bg-success text-white" onchange="this.className='form-select text-white '+(this.value=='Aktif'?'bg-success':(this.value=='Lulus'?'bg-info':'bg-danger'))">
-                <option value="Aktif" class="bg-white text-dark">Aktif</option><option value="Lulus" class="bg-white text-dark">Lulus</option><option value="Pindah" class="bg-white text-dark">Pindah</option>
+              <select name="status" class="form-select bg-success text-white" onchange="this.className='form-select text-white '+(this.value=='Aktif'?'bg-success':(this.value=='Lulus'?'bg-info':(this.value=='Pindah'?'bg-danger':'bg-secondary')))">
+                <option value="Aktif" class="bg-white text-dark">Aktif</option>
+                <option value="Lulus" class="bg-white text-dark">Lulus</option>
+                <option value="Pindah" class="bg-white text-dark">Pindah</option>
+                <option value="Non Aktif" class="bg-white text-dark">Non Aktif</option>
               </select>
             </div>
           </div>
@@ -207,7 +276,7 @@
             <div class="col-md-4"><label class="small fw-bold">Ibu</label><input type="text" name="ibu" class="form-control"></div>
             <div class="col-md-4"><label class="small fw-bold">Wali</label><input type="text" name="wali" class="form-control"></div>
           </div>
-          <div class="mt-4 pt-3 border-top"><button type="submit" class="btn btn-primary w-100 py-2 fw-bold rounded-pill">SIMPAN</button></div>
+          <div class="mt-4 pt-3 border-top"><button type="submit" class="btn btn-primary w-100 py-2 fw-bold rounded-pill">SIMPAN DATA</button></div>
         </form>
       </div>
     </div>
