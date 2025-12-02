@@ -7,6 +7,8 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
   
+  <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+
   <?!= include('Stylesheet'); ?>
 </head>
 <body>
@@ -229,9 +231,14 @@
                </div>
              </div>
              <div class="col-md-2 text-end">
-                <button class="btn btn-primary rounded-pill btn-sm w-100" onclick="prepareAddModal()">
-                  <i class="fas fa-plus me-1"></i> Tambah
-                </button>
+                <div class="d-flex gap-1 justify-content-end">
+                  <button class="btn btn-success rounded-pill btn-sm" onclick="showImportModal()">
+                    <i class="fas fa-file-excel me-1"></i> Import
+                  </button>
+                  <button class="btn btn-primary rounded-pill btn-sm" onclick="prepareAddModal()">
+                    <i class="fas fa-plus me-1"></i> Tambah
+                  </button>
+                </div>
              </div>
           </div>
         </div>
@@ -362,6 +369,39 @@
           </div>
           <div class="mt-4 pt-3 border-top"><button type="submit" class="btn btn-primary w-100 py-2 fw-bold rounded-pill">SIMPAN DATA</button></div>
         </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="importModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-file-import me-2"></i>Import Data Excel</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info small mb-3">
+          <i class="fas fa-info-circle me-1"></i> Pastikan menggunakan template resmi agar format data sesuai.
+        </div>
+        
+        <div class="d-grid gap-2 mb-4">
+          <button class="btn btn-outline-success fw-bold" onclick="downloadTemplate()">
+            <i class="fas fa-download me-2"></i>Download Template Excel
+          </button>
+        </div>
+
+        <hr>
+
+        <label class="form-label fw-bold small text-muted">Upload File (.xlsx)</label>
+        <input type="file" id="fileImportInput" class="form-control mb-3" accept=".xlsx, .xls">
+        
+        <div id="importPreview" class="small text-muted mb-3 fst-italic"></div>
+
+        <button class="btn btn-success w-100 rounded-pill fw-bold" onclick="processImportFile()">
+          <i class="fas fa-upload me-2"></i>PROSES IMPORT
+        </button>
       </div>
     </div>
   </div>
