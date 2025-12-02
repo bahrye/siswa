@@ -128,6 +128,18 @@
                  <option value="">Semua Kelas</option>
                </select>
              </div>
+             
+             <div class="col-md-2">
+               <label class="small fw-bold text-muted">Status</label>
+               <select id="filterStatus" class="form-select form-select-sm" onchange="applyAdminFilter()">
+                 <option value="">Semua Status</option>
+                 <option value="Aktif">Aktif</option>
+                 <option value="Non Aktif">Non Aktif</option>
+                 <option value="Lulus">Lulus</option>
+                 <option value="Pindah">Pindah</option>
+               </select>
+             </div>
+
              <div class="col-md-2">
                <label class="small fw-bold text-muted">Gender</label>
                <select id="filterJK" class="form-select form-select-sm" onchange="applyAdminFilter()">
@@ -136,7 +148,8 @@
                  <option value="P">Perempuan</option>
                </select>
              </div>
-             <div class="col-md-4">
+
+             <div class="col-md-3">
                <label class="small fw-bold text-muted">Usia (Tahun)</label>
                <div class="input-group input-group-sm">
                  <input type="number" id="filterUmurMin" class="form-control" placeholder="Min" onkeyup="applyAdminFilter()">
@@ -144,9 +157,10 @@
                  <input type="number" id="filterUmurMax" class="form-control" placeholder="Max" onkeyup="applyAdminFilter()">
                </div>
              </div>
-             <div class="col-md-3 text-end">
+             
+             <div class="col-md-2 text-end">
                 <button class="btn btn-primary rounded-pill btn-sm w-100" onclick="prepareAddModal()">
-                  <i class="fas fa-plus me-1"></i> Tambah Siswa
+                  <i class="fas fa-plus me-1"></i> Tambah
                 </button>
              </div>
           </div>
@@ -168,20 +182,20 @@
 
       <div class="card border-0 shadow-sm bg-light">
         <div class="card-body">
-          <h5 class="fw-bold text-primary mb-3"><i class="fas fa-chart-pie me-2"></i>Detail Ringkasan Data</h5>
+          <h5 class="fw-bold text-primary mb-3"><i class="fas fa-chart-pie me-2"></i>Ringkasan Data (Sesuai Filter)</h5>
           <div class="row">
             <div class="col-md-12 mb-2">
-              <span class="fw-bold text-secondary" id="sumLabelClass">Kelas : Loading...</span>
+              <span class="fw-bold text-secondary" id="sumLabelFilter">Filter: Semua Data</span>
             </div>
             <div class="col-md-4">
               <div class="d-flex justify-content-between align-items-center bg-white p-2 rounded border">
-                <span id="sumLabelL">Jumlah Laki-Laki :</span>
+                <span id="sumLabelL">Laki-Laki :</span>
                 <span class="fw-bold fs-5 text-primary" id="sumCountL">0</span>
               </div>
             </div>
             <div class="col-md-4">
               <div class="d-flex justify-content-between align-items-center bg-white p-2 rounded border">
-                <span id="sumLabelP">Jumlah Perempuan :</span>
+                <span id="sumLabelP">Perempuan :</span>
                 <span class="fw-bold fs-5 text-danger" id="sumCountP">0</span>
               </div>
             </div>
