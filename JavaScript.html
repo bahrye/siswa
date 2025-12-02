@@ -10,6 +10,53 @@
   // Variabel Cache Kode Akses (Session)
   let cachedAccessCode = ""; 
 
+  // --- [BARU] FUNGSI CEK SESI SAAT RELOAD ---
+  document.addEventListener('DOMContentLoaded', function() {
+    checkSession();
+  });
+
+  function checkSession() {
+    // 1. Cek Sesi Admin
+    const adminSession = localStorage.getItem('eduDataAdmin');
+    if (adminSession) {
+      const sess = JSON.parse(adminSession);
+      
+      // Restore Variabel
+      sessionSchoolID = sess.sekolahID;
+      
+      // Restore UI Dashboard Admin
+      document.getElementById('formSekolahID').value = sess.sekolahID;
+      document.getElementById('dashSchoolName').innerText = sess.namaSekolah;
+      document.getElementById('dashAccessCode').innerText = sess.accessCode;
+      
+      // Pindah Tampilan
+      document.getElementById('viewLanding').classList.add('d-none');
+      document.getElementById('viewPublicList').classList.add('d-none'); // Pastikan publik hidden
+      document.getElementById('viewAdminAuth').classList.add('d-none');
+      document.getElementById('viewAdminDashboard').classList.remove('d-none');
+      document.getElementById('btnLogout').classList.remove('d-none');
+      document.getElementById('btnAdminLink').classList.add('d-none');
+      
+      // Load Data
+      loadAdminData();
+      return; // Stop agar tidak bentrok dengan sesi publik
+    }
+
+    // 2. Cek Sesi Publik (NPSN)
+    const publicNpsn = localStorage.getItem('eduDataPublicNPSN');
+    if (publicNpsn) {
+      document.getElementById('inputNpsn').value = publicNpsn;
+      
+      // Jika sebelumnya sudah memasukkan kode akses (unlocked)
+      const savedCode = localStorage.getItem('eduDataAccessCode');
+      if (savedCode) {
+        cachedAccessCode = savedCode;
+      }
+
+      searchByNPSN(); // Otomatis cari ulang
+    }
+  }
+
   // --- CUSTOM SORTING HELPER ---
   
   // Fungsi menerjemahkan Angka Romawi ke Angka Biasa
@@ -95,6 +142,10 @@
     currentNpsn = "";
     globalPublicData = [];
     cachedAccessCode = ""; // Hapus akses saat keluar dari halaman list
+    
+    // Bersihkan sesi publik dari storage juga saat manual back
+    localStorage.removeItem('eduDataPublicNPSN');
+    localStorage.removeItem('eduDataAccessCode');
   }
   
   function toggleAuth(type) {
@@ -161,6 +212,13 @@
 
   function logout() {
     Swal.fire({ title: 'Logging out...', timer: 800, didOpen: () => Swal.showLoading() });
+    
+    // --- [BARU] HAPUS SESI DARI BROWSER ---
+    localStorage.removeItem('eduDataAdmin');
+    localStorage.removeItem('eduDataPublicNPSN');
+    localStorage.removeItem('eduDataAccessCode');
+    // --------------------------------------
+
     sessionSchoolID = "";
     currentNpsn = "";
     globalStudentData = [];
@@ -169,12 +227,15 @@
     document.getElementById('viewAdminDashboard').classList.add('d-none');
     document.getElementById('viewAdminAuth').classList.add('d-none'); 
     document.getElementById('viewLanding').classList.remove('d-none');
+    document.getElementById('viewPublicList').classList.add('d-none');
+    
     document.getElementById('btnLogout').classList.add('d-none');
     document.getElementById('btnAdminLink').classList.remove('d-none');
     
     document.getElementById('username').value = "";
     document.getElementById('password').value = "";
     document.getElementById('adminTableBody').innerHTML = "";
+    document.getElementById('inputNpsn').value = ""; // Reset input NPSN
   }
 
   // --- 1. PUBLIC SEARCH & FILTERING ---
@@ -182,6 +243,10 @@
   function searchByNPSN() {
     const npsn = document.getElementById('inputNpsn').value;
     if(!npsn) return Swal.fire('Error','Masukkan NPSN dulu','warning');
+    
+    // --- [BARU] SIMPAN NPSN TERAKHIR ---
+    localStorage.setItem('eduDataPublicNPSN', npsn);
+    // -----------------------------------
     
     Swal.fire({title:'Mencari Sekolah...', didOpen:()=>Swal.showLoading()});
     google.script.run.withSuccessHandler(res => {
@@ -326,8 +391,14 @@
         // SUKSES: Simpan Kode & Refresh Tabel untuk Buka Sensor
         cachedAccessCode = code; 
         
-        // 1. Tampilkan Modal Detail Siswa yg dipilih
-        showDetailModal(res.data);
+        // --- [BARU] SIMPAN KODE AKSES KE STORAGE ---
+        localStorage.setItem('eduDataAccessCode', code);
+        // -------------------------------------------
+        
+        // 1. Tampilkan Modal Detail Siswa yg dipilih (Hanya jika ada selectedNisn aktif)
+        if(selectedNisn) {
+           showDetailModal(res.data);
+        }
         
         // 2. Refresh Tabel Publik (agar bintang-bintang hilang di semua baris)
         applyPublicFilter(); 
@@ -335,9 +406,10 @@
       } else {
         // GAGAL: Reset Cache
         cachedAccessCode = ""; 
+        localStorage.removeItem('eduDataAccessCode'); // Hapus jika salah
         Swal.fire('Akses Ditolak', res.message, 'error');
       }
-    }).verifyAndGetDetail(currentNpsn, selectedNisn, code);
+    }).verifyAndGetDetail(currentNpsn, selectedNisn || "000", code);
   }
 
   function showDetailModal(s) {
@@ -389,6 +461,15 @@
     google.script.run.withSuccessHandler(res => {
       Swal.close();
       if(res.status === 'success') {
+        // --- [BARU] SIMPAN SESI KE LOCALSTORAGE ---
+        const sessionData = {
+          sekolahID: res.sekolahID,
+          namaSekolah: res.namaSekolah,
+          accessCode: res.accessCode
+        };
+        localStorage.setItem('eduDataAdmin', JSON.stringify(sessionData));
+        // ------------------------------------------
+
         sessionSchoolID = res.sekolahID;
         document.getElementById('formSekolahID').value = res.sekolahID;
         document.getElementById('dashSchoolName').innerText = res.namaSekolah;
@@ -397,6 +478,8 @@
         document.getElementById('viewAdminAuth').classList.add('d-none');
         document.getElementById('viewAdminDashboard').classList.remove('d-none');
         document.getElementById('btnLogout').classList.remove('d-none');
+        document.getElementById('btnAdminLink').classList.add('d-none'); // Sembunyikan tombol admin link
+        
         loadAdminData();
       } else Swal.fire('Gagal', 'Username/Password salah', 'error');
     }).loginAdmin(u, p);
