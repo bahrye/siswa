@@ -1,5 +1,5 @@
 /**
- * APLIKASI DATABASE SISWA MULTI-SEKOLAH (Distributed Architecture)
+ * APLIKASI DATABASE SISWA MULTI-SEKOLAH
  * File: Kode.gs
  */
 
@@ -11,7 +11,6 @@ function doGet() {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// Fungsi Helper untuk memisahkan file HTML/CSS/JS
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename)
       .getContent();
@@ -24,7 +23,6 @@ function loginAdmin(username, password) {
   const sheet = ss.getSheetByName('Admin');
   const data = sheet.getDataRange().getValues();
   
-  // Kolom: [User, Pass, SekolahID, Nama, NPSN, SpreadsheetID, AccessCode]
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] == username && data[i][1] == password) {
       return { 
@@ -47,19 +45,16 @@ function registrasiSekolah(form) {
     return { status: 'error', message: 'Semua kolom wajib diisi!' };
   }
 
-  // Cek Duplikasi
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] == form.regUser) return { status: 'error', message: 'Username sudah dipakai.' };
     if (data[i][4] == form.regNpsn) return { status: 'error', message: 'NPSN sudah terdaftar.' };
   }
 
   try {
-    // 1. Buat Spreadsheet Database Baru
     const dbName = "DB_SISWA_" + form.regNama + "_" + form.regNpsn;
     const newSS = SpreadsheetApp.create(dbName);
     const newId = newSS.getId();
     
-    // 2. Setup Header DataSiswa
     const newSheet = newSS.getSheets()[0];
     newSheet.setName("DataSiswa");
     const headers = [
@@ -70,18 +65,12 @@ function registrasiSekolah(form) {
     ];
     newSheet.appendRow(headers);
 
-    // 3. Simpan Akun ke Admin Utama
     const uniqueID = "SCH-" + new Date().getTime().toString().substr(-6);
-    const accessCode = generateRandomCode(8); // Kode Akses 8 Digit
+    const accessCode = generateRandomCode(8);
 
     sheet.appendRow([
-      form.regUser,      // 0
-      form.regPass,      // 1
-      uniqueID,          // 2
-      form.regNama,      // 3
-      "'" + form.regNpsn,// 4
-      newId,             // 5: Spreadsheet ID
-      accessCode         // 6: Access Code
+      form.regUser, form.regPass, uniqueID, form.regNama,
+      "'" + form.regNpsn, newId, accessCode
     ]);
 
     return { status: 'success', message: 'Registrasi Berhasil! Silakan Login.' };
@@ -116,7 +105,6 @@ function getSchoolByNPSN(npsn) {
     const rows = db.getSheetByName('DataSiswa').getDataRange().getValues();
     const publicData = [];
     
-    // Return data terbatas (Nama, NISN, Kelas, Status)
     for (let i = 1; i < rows.length; i++) {
       publicData.push({
         nisn: rows[i][0],
@@ -131,7 +119,7 @@ function getSchoolByNPSN(npsn) {
   }
 }
 
-// --- 3. FITUR DETAIL (KODE AKSES) ---
+// --- 3. FITUR DETAIL ---
 
 function verifyAndGetDetail(npsn, nisn, inputCode) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -163,14 +151,7 @@ function verifyAndGetDetail(npsn, nisn, inputCode) {
       if (rows[i][0] == nisn) {
         return {
           success: true,
-          data: {
-            nisn: rows[i][0], nama: rows[i][1], nik: rows[i][2],
-            tempatLahir: rows[i][3], tglLahir: mapDate(rows[i][4]),
-            rombel: rows[i][5], umur: rows[i][6], status: rows[i][7],
-            jk: rows[i][8], alamat: rows[i][9], telp: rows[i][10],
-            kebKhusus: rows[i][11], disabilitas: rows[i][12], kip: rows[i][13],
-            ayah: rows[i][14], ibu: rows[i][15], wali: rows[i][16]
-          }
+          data: mapStudentRow(rows[i])
         };
       }
     }
@@ -190,10 +171,9 @@ function getDataSiswa(sekolahID) {
     const db = SpreadsheetApp.openById(dbId);
     const rows = db.getSheetByName('DataSiswa').getDataRange().getValues();
     const result = [];
+    
     for (let i = 1; i < rows.length; i++) {
-      result.push({
-        nisn: rows[i][0], nama: rows[i][1], rombel: rows[i][5], status: rows[i][7]
-      });
+      result.push(mapStudentRow(rows[i]));
     }
     return result;
   } catch(e) { return []; }
@@ -215,6 +195,52 @@ function tambahSiswa(f) {
   } catch(e) { return "Gagal menyimpan: " + e.message; }
 }
 
+function hapusSiswa(sekolahID, nisn) {
+  const dbId = getSchoolDbId(sekolahID);
+  if (!dbId) return {status:'error', message: "Database tidak ditemukan."};
+
+  try {
+    const targetSS = SpreadsheetApp.openById(dbId);
+    const sheet = targetSS.getSheetByName('DataSiswa');
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) == String(nisn)) {
+        sheet.deleteRow(i + 1); 
+        return {status: 'success', message: "Data berhasil dihapus!"};
+      }
+    }
+    return {status: 'error', message: "NISN tidak ditemukan."};
+  } catch(e) { return {status: 'error', message: "Gagal: " + e.message}; }
+}
+
+function editSiswa(f) {
+  const dbId = getSchoolDbId(f.sekolahID);
+  if (!dbId) return "Error: Database tidak ditemukan.";
+
+  try {
+    const targetSS = SpreadsheetApp.openById(dbId);
+    const sheet = targetSS.getSheetByName('DataSiswa');
+    const data = sheet.getDataRange().getValues();
+    
+    const searchKey = f.oldNisn || f.nisn;
+
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) == String(searchKey)) {
+        const rowNum = i + 1;
+        const updatedRow = [
+          "'" + f.nisn, f.nama, "'" + f.nik, f.tempatLahir, f.tglLahir,
+          f.rombel, f.umur, f.status, f.jk, f.alamat, f.telp,
+          f.kebKhusus, f.disabilitas, f.kip, f.ayah, f.ibu, f.wali, new Date()
+        ];
+        sheet.getRange(rowNum, 1, 1, updatedRow.length).setValues([updatedRow]);
+        return "Data Berhasil Diperbarui!";
+      }
+    }
+    return "Data tidak ditemukan untuk diedit.";
+  } catch(e) { return "Gagal update: " + e.message; }
+}
+
 // Helpers
 function getSchoolDbId(sekolahID) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -223,6 +249,17 @@ function getSchoolDbId(sekolahID) {
     if(rows[i][2] == sekolahID) return rows[i][5];
   }
   return null;
+}
+
+function mapStudentRow(row) {
+  return {
+    nisn: row[0], nama: row[1], nik: row[2],
+    tempatLahir: row[3], tglLahir: mapDate(row[4]),
+    rombel: row[5], umur: row[6], status: row[7],
+    jk: row[8], alamat: row[9], telp: row[10],
+    kebKhusus: row[11], disabilitas: row[12], kip: row[13],
+    ayah: row[14], ibu: row[15], wali: row[16]
+  };
 }
 
 function generateRandomCode(length) {
