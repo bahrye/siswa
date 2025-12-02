@@ -1,0 +1,47 @@
+<style>
+  :root {
+    --primary-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --glass-bg: rgba(255, 255, 255, 0.95);
+  }
+
+  body {
+    font-family: 'Poppins', sans-serif;
+    background: #eef2f7;
+    min-height: 100vh;
+  }
+
+  /* Navbar Custom */
+  .navbar-custom {
+    background: var(--primary-grad);
+    box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);
+  }
+
+  /* Glassmorphism Card */
+  .glass-panel {
+    background: var(--glass-bg);
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    padding: 40px;
+    margin-top: 30px;
+  }
+
+  /* Animations */
+  .animate-fade { animation: fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Form & Tables */
+  .form-floating > .form-control:focus ~ label { color: #764ba2; }
+  .form-control:focus { border-color: #764ba2; box-shadow: 0 0 0 0.25rem rgba(118, 75, 162, 0.25); }
+  .status-badge { font-size: 0.75rem; padding: 6px 12px; border-radius: 50px; font-weight: 600; }
+  
+  /* Access Code Box */
+  .access-code-box {
+    border: 2px dashed #764ba2; background: #f8f9fa; color: #764ba2;
+    font-size: 1.2rem; font-weight: bold; letter-spacing: 2px;
+    padding: 10px; border-radius: 10px; display: inline-block;
+  }
+</style>
