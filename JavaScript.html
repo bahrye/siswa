@@ -10,6 +10,119 @@
   // Variabel Cache Kode Akses (Session)
   let cachedAccessCode = ""; 
 
+  // --- CUSTOM SORTING HELPER ---
+  
+  // Fungsi menerjemahkan Angka Romawi ke Angka Biasa
+  function decodeRoman(roman) {
+    const vals = {I:1, V:5, X:10, L:50, C:100};
+    let num = 0;
+    for (let i = 0; i < roman.length; i++) {
+      let curr = vals[roman[i]] || 0;
+      let next = vals[roman[i+1]] || 0;
+      if (next > curr) num -= curr;
+      else num += curr;
+    }
+    return num;
+  }
+
+  // Fungsi memecah nama kelas menjadi Level (Angka) dan Suffix (sisanya)
+  function parseClassLevel(name) {
+    if (!name) return { level: 9999, original: "" };
+    
+    // 1. Bersihkan kata "Kelas", "Kls", dll
+    let clean = name.replace(/^(kelas|kls)\.?\s*/i, "").trim();
+    
+    // 2. Cek Angka Biasa di awal (Contoh: "10 IPA 1")
+    let matchDigit = clean.match(/^(\d+)/);
+    if (matchDigit) {
+      return {
+        level: parseInt(matchDigit[1]),
+        suffix: clean.substring(matchDigit[1].length).trim(),
+        original: name
+      };
+    }
+
+    // 3. Cek Angka Romawi di awal (Contoh: "XII IPA 1")
+    // Regex: Karakter Romawi diikuti spasi/titik/strip atau akhir string
+    let matchRoman = clean.match(/^([IVXLC]+)(?=[^a-zA-Z]|$)/i);
+    if (matchRoman) {
+      return {
+        level: decodeRoman(matchRoman[1].toUpperCase()),
+        suffix: clean.substring(matchRoman[1].length).trim(),
+        original: name
+      };
+    }
+
+    // Jika format tidak dikenali, taruh paling bawah
+    return { level: 9999, suffix: clean, original: name };
+  }
+
+  // --- CUSTOM SORTING HELPER (Updated) ---
+  
+  // 1. Helper konversi Romawi ke Angka (Contoh: X -> 10)
+  function decodeRoman(roman) {
+    const vals = {I:1, V:5, X:10, L:50, C:100};
+    let num = 0;
+    for (let i = 0; i < roman.length; i++) {
+      let curr = vals[roman[i]] || 0;
+      let next = vals[roman[i+1]] || 0;
+      if (next > curr) num -= curr;
+      else num += curr;
+    }
+    return num;
+  }
+
+  // 2. Helper memecah string kelas menjadi Level dan Suffix
+  function parseClassLevel(name) {
+    if (!name) return { level: 9999, suffix: "" };
+    
+    // Hapus awalan umum seperti "Kelas", "Kls", dll
+    let clean = name.replace(/^(kelas|kls)\.?\s*/i, "").trim();
+    
+    // Cek apakah diawali Angka (7, 8, 9, 10...)
+    let matchDigit = clean.match(/^(\d+)/);
+    if (matchDigit) {
+      return {
+        level: parseInt(matchDigit[1]),
+        suffix: clean.substring(matchDigit[1].length).trim()
+      };
+    }
+
+    // Cek apakah diawali Romawi (VII, VIII, IX, X...)
+    let matchRoman = clean.match(/^([IVXLC]+)(?=[^a-zA-Z]|$)/i);
+    if (matchRoman) {
+      return {
+        level: decodeRoman(matchRoman[1].toUpperCase()),
+        suffix: clean.substring(matchRoman[1].length).trim()
+      };
+    }
+
+    // Jika format lain, taruh di urutan akhir
+    return { level: 9999, suffix: clean };
+  }
+
+  // 3. Fungsi Utama Pengurutan (Kelas -> Jurusan -> Nama Siswa)
+  function compareDataSiswa(a, b) {
+    let rA = parseClassLevel(a.rombel);
+    let rB = parseClassLevel(b.rombel);
+
+    // Prioritas 1: Level Kelas (Kecil ke Besar)
+    if (rA.level !== rB.level) {
+      return rA.level - rB.level;
+    }
+
+    // Prioritas 2: Detail Kelas (IPA 1, IPA 2, A, B...)
+    // 'numeric: true' memastikan "IPA 2" lebih dulu daripada "IPA 10"
+    const suffixCompare = rA.suffix.localeCompare(rB.suffix, undefined, {numeric: true, sensitivity: 'base'});
+    if (suffixCompare !== 0) {
+      return suffixCompare;
+    }
+
+    // Prioritas 3: Nama Siswa (A-Z)
+    // Dijalankan hanya jika Level dan Detail Kelas sama persis
+    return a.nama.localeCompare(b.nama, undefined, {sensitivity: 'base'});
+  }
+
   // --- NAVIGATION & UTILS ---
   function showAdminLogin() {
     document.getElementById('viewLanding').classList.add('d-none');
@@ -119,6 +232,7 @@
     google.script.run.withSuccessHandler(res => {
       Swal.close();
       if(res.found) {
+        res.data.sort(compareDataSiswa);
         currentNpsn = npsn;
         document.getElementById('publicSchoolName').innerText = res.namaSekolah;
         document.getElementById('publicNpsnBadge').innerText = "NPSN: " + npsn;
@@ -199,7 +313,7 @@
       // --- LOGIKA MASKING vs UNMASKING ---
       if (cachedAccessCode !== "") {
           // JIKA SUDAH PUNYA AKSES: Tampilkan DATA ASLI
-          displayNISN = `<span class="fw-bold text-dark">${row.nisn}</span>`;
+          displayNISN = `<span class="text-dark">${row.nisn}</span>`;
           displayAge = calculateAgeString(row.tglLahir);
       } else {
           // JIKA BELUM PUNYA AKSES: Tampilkan SENSOR BINTANG
@@ -350,6 +464,7 @@
     Swal.fire({title:'Memuat Data...', didOpen:()=>Swal.showLoading()});
     google.script.run.withSuccessHandler(data => {
       Swal.close();
+      data.sort(compareDataSiswa);
       globalStudentData = data;
       
       const uniqueRombel = [...new Set(data.map(item => item.rombel))].sort();
