@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --glass-bg: rgba(255, 255, 255, 0.95);
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #eef2f7;
+      min-height: 100vh;
+    }
+
+    /* Navbar Custom */
+    .navbar-custom {
+      background: var(--primary-grad);
+      box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);
+    }
+
+    /* Glassmorphism Card */
+    .glass-panel {
+      background: var(--glass-bg);
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      padding: 40px;
+      margin-top: 30px;
+    }
+
+    /* Animations */
+    .animate-fade { animation: fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Form Styles */
+    .form-floating > .form-control:focus ~ label { color: #764ba2; }
+    .form-control:focus { border-color: #764ba2; box-shadow: 0 0 0 0.25rem rgba(118, 75, 162, 0.25); }
+    
+    /* Table & Status */
+    .status-badge { font-size: 0.75rem; padding: 6px 12px; border-radius: 50px; font-weight: 600; }
+    .table-hover tbody tr:hover { background-color: #f8f9ff; cursor: pointer; }
+    
+    /* Section Title in Modal */
+    .section-title {
+      color: #764ba2;
+      font-weight: 700;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 8px;
+      margin-top: 20px;
+      margin-bottom: 15px;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark navbar-custom sticky-top">
+  <div class="container">
+    <span class="navbar-brand fw-bold fs-4">
+      <i class="fas fa-graduation-cap me-2"></i>EduData<span class="fw-light">Pro</span>
+    </span>
+    <button class="btn btn-light btn-sm rounded-pill text-primary d-none fw-bold shadow-sm" id="btnLogout" onclick="logout()">
+      <i class="fas fa-sign-out-alt me-1"></i> Logout
+    </button>
+  </div>
+</nav>
+
+<div class="container pb-5">
+
+  <div id="authView" class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      
+      <div id="loginPanel" class="glass-panel text-center animate-fade">
+        <h3 class="mb-4 fw-bold" style="color:#555">Login Sekolah</h3>
+        
+        <form onsubmit="handleLogin(event)">
+          <div class="form-floating mb-3 text-start">
+            <input type="text" id="username" class="form-control" placeholder="User" required>
+            <label>Username Admin</label>
+          </div>
+          <div class="form-floating mb-4 text-start">
+            <input type="password" id="password" class="form-control" placeholder="Pass" required>
+            <label>Password</label>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold" style="background: var(--primary-grad); border:none;">
+            MASUK <i class="fas fa-arrow-right ms-2"></i>
+          </button>
+        </form>
+
+        <div class="mt-4 pt-3 border-top">
+          <small class="text-muted">Sekolah belum terdaftar?</small><br>
+          <button class="btn btn-outline-dark btn-sm rounded-pill mt-2 px-4" onclick="toggleAuth('register')">
+            Daftar Akun Sekolah
+          </button>
+        </div>
+        
+        <div class="mt-3">
+          <a href="#" class="text-decoration-none text-secondary small" data-bs-toggle="modal" data-bs-target="#publicSearchModal">
+            <i class="fas fa-search me-1"></i> Cek Data Siswa (Publik)
+          </a>
+        </div>
+      </div>
+
+      <div id="registerPanel" class="glass-panel animate-fade d-none">
+        <div class="text-center mb-4">
+          <h4 class="fw-bold text-success">Registrasi Baru</h4>
+          <p class="text-muted small">Lengkapi data sekolah untuk mendapatkan akses.</p>
+        </div>
+
+        <form id="formRegistrasi" onsubmit="handleRegister(event)">
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-muted">IDENTITAS SEKOLAH</label>
+            <input type="number" name="regNpsn" class="form-control mb-2" placeholder="NPSN (Wajib)" required>
+            <input type="text" name="regNama" class="form-control" placeholder="Nama Sekolah Lengkap" required>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label small fw-bold text-muted">AKUN ADMIN</label>
+            <input type="text" name="regUser" class="form-control mb-2" placeholder="Username Baru" required>
+            <input type="password" name="regPass" class="form-control" placeholder="Password Baru" required>
+          </div>
+
+          <button type="submit" class="btn btn-success w-100 rounded-pill py-2 fw-bold shadow-sm">
+            DAFTARKAN SEKOLAH
+          </button>
+
+          <div class="text-center mt-3">
+            <button type="button" class="btn btn-link text-secondary text-decoration-none small" onclick="toggleAuth('login')">
+              <i class="fas fa-arrow-left me-1"></i> Kembali ke Login
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="dashboardView" class="d-none animate-fade">
+    <div class="glass-panel p-4">
+      <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+          <h4 class="fw-bold mb-0" id="schoolNameDisplay">Loading...</h4>
+          <span class="badge bg-secondary rounded-pill" id="schoolIDDisplay">SCH-ID</span>
+        </div>
+        <button class="btn btn-primary rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#addModal">
+          <i class="fas fa-plus-circle me-2"></i>Tambah Siswa
+        </button>
+      </div>
+
+      <div class="mb-3">
+        <input type="text" id="localSearch" class="form-control rounded-pill" placeholder="🔍 Cari nama siswa di tabel..." onkeyup="filterTable()">
+      </div>
+
+      <div class="table-responsive bg-white rounded shadow-sm">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="bg-light text-secondary">
+            <tr>
+              <th class="ps-3">No</th>
+              <th>Nama Lengkap</th>
+              <th>NISN</th>
+              <th>Kelas</th>
+              <th>Status</th>
+              <th class="text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            </tbody>
+        </table>
+        
+        <div id="tableLoader" class="text-center py-5">
+          <div class="spinner-border text-primary" role="status"></div>
+          <p class="mt-2 text-muted small">Memuat data siswa...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div> <div class="modal fade" id="addModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-bold"><i class="fas fa-user-plus me-2 text-primary"></i>Input Data Siswa</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body bg-white">
+        <form id="addStudentForm" onsubmit="handleAddStudent(event)">
+          <input type="hidden" id="currentSekolahID" name="sekolahID">
+
+          <div class="section-title">Data Identitas</div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small">Nama Lengkap</label>
+              <input type="text" name="nama" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small">NISN</label>
+              <input type="number" name="nisn" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small">NIK</label>
+              <input type="number" name="nik" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Jenis Kelamin</label>
+              <select name="jk" class="form-select">
+                <option value="L">Laki-laki</option>
+                <option value="P">Perempuan</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Tempat Lahir</label>
+              <input type="text" name="tempatLahir" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Tanggal Lahir</label>
+              <input type="date" name="tglLahir" id="inputTglLahir" class="form-control" onchange="hitungUmur()">
+            </div>
+          </div>
+
+          <div class="section-title">Akademik & Status</div>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small">Tingkat - Rombel</label>
+              <input type="text" name="rombel" class="form-control" placeholder="Mis: X-IPA 1">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small">Umur</label>
+              <input type="number" name="umur" id="inputUmur" class="form-control bg-light" readonly>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Status Siswa</label>
+              <select name="status" class="form-select text-white bg-success" onchange="changeStatusColor(this)">
+                <option value="Aktif" class="bg-white text-dark">Aktif</option>
+                <option value="Tidak Aktif" class="bg-white text-dark">Tidak Aktif</option>
+                <option value="Lulus" class="bg-white text-dark">Lulus</option>
+                <option value="Pindah" class="bg-white text-dark">Pindah</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="section-title">Alamat & Tambahan</div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small">Alamat Lengkap</label>
+              <textarea name="alamat" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">No Telepon</label>
+              <input type="text" name="telp" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">No KIP/PIP</label>
+              <input type="text" name="kip" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Kebutuhan Khusus</label>
+              <input type="text" name="kebKhusus" class="form-control" placeholder="-">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Disabilitas</label>
+              <input type="text" name="disabilitas" class="form-control" placeholder="-">
+            </div>
+          </div>
+
+          <div class="section-title">Data Orang Tua / Wali</div>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small">Nama Ayah</label>
+              <input type="text" name="ayah" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Nama Ibu</label>
+              <input type="text" name="ibu" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Nama Wali</label>
+              <input type="text" name="wali" class="form-control">
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-top">
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">SIMPAN DATA</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="detailModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Detail Siswa</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0" id="detailContent">
+        </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="publicSearchModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-bold">Pencarian Data Siswa</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group mb-3">
+          <input type="number" id="searchNisnPub" class="form-control" placeholder="Masukkan NISN Siswa">
+          <button class="btn btn-primary" onclick="doPublicSearch()">Cari</button>
+        </div>
+        <div id="publicResult"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+  let sessionSekolahID = "";
+  let allDataSiswa = [];
+
+  // 1. UI LOGIC (Toggle, Umur, Warna)
+  function toggleAuth(view) {
+    const login = document.getElementById('loginPanel');
+    const reg = document.getElementById('registerPanel');
+    
+    if(view === 'register') {
+      login.classList.add('d-none');
+      reg.classList.remove('d-none');
+    } else {
+      reg.classList.add('d-none');
+      login.classList.remove('d-none');
+    }
+  }
+
+  function hitungUmur() {
+    const dob = document.getElementById('inputTglLahir').value;
+    if(dob) {
+      const birthDate = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+      document.getElementById('inputUmur').value = age;
+    }
+  }
+
+  function changeStatusColor(el) {
+    el.className = 'form-select text-white';
+    if(el.value === 'Aktif') el.classList.add('bg-success');
+    else if(el.value === 'Lulus') el.classList.add('bg-info');
+    else el.classList.add('bg-danger');
+  }
+
+  // 2. AUTH LOGIC (Register & Login)
+  function handleRegister(e) {
+    e.preventDefault();
+    const form = document.getElementById('formRegistrasi');
+    
+    Swal.fire({title: 'Memproses...', didOpen: () => Swal.showLoading()});
+    
+    google.script.run.withSuccessHandler(res => {
+      Swal.close();
+      if(res.status === 'success') {
+        Swal.fire('Sukses', res.message, 'success');
+        form.reset();
+        toggleAuth('login');
+      } else {
+        Swal.fire('Gagal', res.message, 'error');
+      }
+    }).registrasiSekolah(form);
+  }
+
+  function handleLogin(e) {
+    e.preventDefault();
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    
+    Swal.fire({title: 'Memeriksa...', didOpen: () => Swal.showLoading()});
+
+    google.script.run.withSuccessHandler(res => {
+      Swal.close();
+      if(res.status === 'success'){
+        sessionSekolahID = res.sekolahID;
+        document.getElementById('schoolNameDisplay').innerText = res.namaSekolah;
+        document.getElementById('schoolIDDisplay').innerText = res.sekolahID;
+        document.getElementById('currentSekolahID').value = res.sekolahID;
+        
+        // Switch View
+        document.getElementById('authView').classList.add('d-none');
+        document.getElementById('dashboardView').classList.remove('d-none');
+        document.getElementById('btnLogout').classList.remove('d-none');
+        
+        loadData(); // Load Data Tabel
+      } else {
+        Swal.fire('Error', 'Username atau Password salah!', 'error');
+      }
+    }).loginAdmin(u, p);
+  }
+
+  // 3. DASHBOARD LOGIC (Load, Add, Search)
+  function loadData() {
+    const tbody = document.getElementById('tableBody');
+    const loader = document.getElementById('tableLoader');
+    tbody.innerHTML = '';
+    loader.style.display = 'block';
+
+    google.script.run.withSuccessHandler(data => {
+      loader.style.display = 'none';
+      allDataSiswa = data; // Simpan ke variable global
+      renderTable(data);
+    }).getDataSiswa(sessionSekolahID);
+  }
+
+  function renderTable(data) {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    
+    if(data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data siswa. Silakan tambah data baru.</td></tr>';
+      return;
+    }
+
+    data.forEach((row, index) => {
+      let badge = row.status === 'Aktif' ? 'bg-success' : (row.status === 'Lulus' ? 'bg-info' : 'bg-danger');
+      
+      tbody.innerHTML += `
+        <tr onclick="showDetail(${index})">
+          <td class="ps-3">${index + 1}</td>
+          <td class="fw-bold text-primary">${row.nama}</td>
+          <td>${row.nisn}</td>
+          <td>${row.rombel}</td>
+          <td><span class="badge ${badge} status-badge">${row.status}</span></td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-light border rounded-circle text-primary">
+              <i class="fas fa-eye"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+  function filterTable() {
+    const key = document.getElementById('localSearch').value.toLowerCase();
+    const filtered = allDataSiswa.filter(s => s.nama.toLowerCase().includes(key) || s.nisn.toString().includes(key));
+    renderTable(filtered);
+  }
+
+  function handleAddStudent(e) {
+    e.preventDefault();
+    const form = document.getElementById('addStudentForm');
+    
+    // Validasi Sederhana
+    const modalEl = document.getElementById('addModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    modal.hide();
+
+    Swal.fire({title: 'Menyimpan Data...', didOpen: () => Swal.showLoading()});
+
+    google.script.run.withSuccessHandler(msg => {
+      Swal.close();
+      Swal.fire('Berhasil', msg, 'success');
+      form.reset();
+      loadData();
+    }).tambahSiswa(form);
+  }
+
+  function showDetail(index) {
+    // Cari data berdasarkan index di array allDataSiswa (yg sudah di filter jika search aktif)
+    // NB: Untuk simplifikasi, kita pakai index array global. Jika search aktif, logic ini butuh penyesuaian sedikit jika pakai filtered array. 
+    // Tapi karena onclick dirender ulang, kita pakai pendekatan simple:
+    // Kita cari object siswa berdasarkan nama/nisn dari row yg diklik, atau passing data langsung.
+    // Di sini kita pakai logic index dari renderTable yang sync dengan allDataSiswa jika tidak difilter.
+    // Agar aman saat filter, kita cari object dari allDataSiswa.
+    
+    // *FIX:* Untuk table filter, row index berubah. Lebih baik kita ambil data langsung dari array filtered di renderTable? 
+    // Untuk kode ini saya pakai cara simple: renderTable pakai allDataSiswa (dan filterTable filter array itu).
+    // Jadi index yang dikirim showDetail harus index asli dari data.
+    // Namun untuk kemudahan, fungsi ini mengambil data dari allDataSiswa yang cocok.
+    
+    // Revisi logic simple:
+    const s = allDataSiswa[index]; // Ini valid jika tidak sedang filter search.
+    // Jika sedang filter, index ini mungkin salah. Tapi untuk MVP ini cukup, 
+    // atau gunakan NISN sebagai ID unik. 
+    
+    // Mari kita tampilkan saja berdasarkan data yang ada:
+    // Tips: Saat filterTable, index jadi 0, 1, 2 lagi. Jadi kita perlu passing object siswa-nya jika pakai framework reaktif. 
+    // Di vanilla JS, kita cari manual di array global based on NISN row tsb agak ribet.
+    // Solusi cepat: Matikan filterTable search sementara, atau reset filter saat klik.
+    // Atau: Kita cari di allDataSiswa yang NISN nya sama dengan yang diklik.
+    
+    // Code below assumes list is refreshed or index matches.
+    // Let's create the modal content:
+    
+    const content = `
+      <div class="table-responsive">
+      <table class="table table-striped table-borderless mb-0">
+        <tr><th class="ps-4 w-35 text-muted">Nama Lengkap</th><td class="fw-bold">${s.nama}</td></tr>
+        <tr><th class="ps-4 text-muted">NISN / NIK</th><td>${s.nisn} <br><small class="text-muted">${s.nik}</small></td></tr>
+        <tr><th class="ps-4 text-muted">TTL (Umur)</th><td>${s.tempatLahir}, ${s.tglLahir} (${s.umur} th)</td></tr>
+        <tr><th class="ps-4 text-muted">Gender</th><td>${s.jk == 'L' ? 'Laki-laki' : 'Perempuan'}</td></tr>
+        <tr><th class="ps-4 text-muted">Kelas</th><td>${s.rombel}</td></tr>
+        <tr><th class="ps-4 text-muted">Status</th><td><span class="badge bg-secondary">${s.status}</span></td></tr>
+        <tr><td colspan="2"><hr class="my-1"></td></tr>
+        <tr><th class="ps-4 text-muted">Alamat</th><td>${s.alamat}</td></tr>
+        <tr><th class="ps-4 text-muted">Kontak</th><td>${s.telp}</td></tr>
+        <tr><th class="ps-4 text-muted">Orang Tua</th><td>Ayah: ${s.ayah}<br>Ibu: ${s.ibu}</td></tr>
+        <tr><th class="ps-4 text-muted">Wali</th><td>${s.wali}</td></tr>
+        <tr><td colspan="2"><hr class="my-1"></td></tr>
+        <tr><th class="ps-4 text-muted">KIP/PIP</th><td>${s.kip}</td></tr>
+        <tr><th class="ps-4 text-muted">Keb. Khusus</th><td>${s.kebKhusus} (${s.disabilitas})</td></tr>
+      </table>
+      </div>
+    `;
+    
+    document.getElementById('detailContent').innerHTML = content;
+    new bootstrap.Modal(document.getElementById('detailModal')).show();
+  }
+  
+  // Override renderTable agar index click aman saat searching
+  // Kita tambahkan atribut data-nisn agar pencarian detail akurat
+  function renderTable(data) {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    
+    if(data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Data tidak ditemukan.</td></tr>';
+      return;
+    }
+
+    data.forEach((row, i) => {
+       let badge = row.status === 'Aktif' ? 'bg-success' : (row.status === 'Lulus' ? 'bg-info' : 'bg-danger');
+       // Kita cari index asli di allDataSiswa berdasarkan NISN unique
+       let realIndex = allDataSiswa.findIndex(x => x.nisn === row.nisn);
+
+       tbody.innerHTML += `
+        <tr onclick="showDetail(${realIndex})">
+          <td class="ps-3">${i + 1}</td>
+          <td class="fw-bold text-primary">${row.nama}</td>
+          <td>${row.nisn}</td>
+          <td>${row.rombel}</td>
+          <td><span class="badge ${badge} status-badge">${row.status}</span></td>
+          <td class="text-center"><i class="fas fa-eye text-muted"></i></td>
+        </tr>
+      `;
+    });
+  }
+
+  // 4. PUBLIC SEARCH
+  function doPublicSearch() {
+    const nisn = document.getElementById('searchNisnPub').value;
+    const resDiv = document.getElementById('publicResult');
+    
+    if(!nisn) return;
+    resDiv.innerHTML = '<div class="text-center mt-3"><div class="spinner-border spinner-border-sm"></div> Mencari...</div>';
+
+    google.script.run.withSuccessHandler(res => {
+      if(res.found) {
+        resDiv.innerHTML = `
+          <div class="card border-success mt-3 shadow-sm animate-fade">
+            <div class="card-body">
+              <h5 class="card-title text-success fw-bold"><i class="fas fa-check-circle me-1"></i> Data Ditemukan</h5>
+              <p class="card-text mb-1"><strong>${res.nama}</strong></p>
+              <p class="card-text mb-1 text-muted">Kelas: ${res.rombel}</p>
+              <p class="card-text mb-1 text-muted">Sekolah: ${res.sekolah}</p>
+              <span class="badge bg-primary mt-2">${res.status}</span>
+            </div>
+          </div>
+        `;
+      } else {
+        resDiv.innerHTML = `<div class="alert alert-danger mt-3 animate-fade"><i class="fas fa-times-circle me-1"></i> Data NISN tidak ditemukan.</div>`;
+      }
+    }).cariSiswaPublik(nisn);
+  }
+
+  function logout() {
+    // Simple reload to clear JS state
+    location.reload();
+  }
+</script>
+
+</body>
+</html>
