@@ -110,7 +110,9 @@ function getSchoolByNPSN(npsn) {
         nisn: rows[i][0],
         nama: rows[i][1],
         rombel: rows[i][5],
-        status: rows[i][7]
+        status: rows[i][7],
+        jk: rows[i][8],              
+        tglLahir: mapDate(rows[i][4]) 
       });
     }
     return { found: true, namaSekolah: namaSekolah, data: publicData };
