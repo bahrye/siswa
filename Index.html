@@ -54,16 +54,90 @@
           <i class="fas fa-arrow-left me-1"></i> Kembali
         </button>
       </div>
-      <div class="table-responsive bg-white rounded shadow-sm">
+
+      <div class="card border-0 shadow-sm mb-4 bg-light">
+        <div class="card-body py-3">
+          <div class="row g-2 align-items-end">
+             <div class="col-md-3">
+               <label class="small fw-bold text-muted">Filter Kelas</label>
+               <select id="pubFilterRombel" class="form-select form-select-sm" onchange="applyPublicFilter()">
+                 <option value="">Semua Kelas</option>
+               </select>
+             </div>
+             <div class="col-md-2">
+               <label class="small fw-bold text-muted">Status</label>
+               <select id="pubFilterStatus" class="form-select form-select-sm" onchange="applyPublicFilter()">
+                 <option value="">Semua Status</option>
+                 <option value="Aktif">Aktif</option>
+                 <option value="Non Aktif">Non Aktif</option>
+                 <option value="Lulus">Lulus</option>
+                 <option value="Pindah">Pindah</option>
+               </select>
+             </div>
+             <div class="col-md-2">
+               <label class="small fw-bold text-muted">Gender</label>
+               <select id="pubFilterJK" class="form-select form-select-sm" onchange="applyPublicFilter()">
+                 <option value="">Semua</option>
+                 <option value="L">Laki-laki</option>
+                 <option value="P">Perempuan</option>
+               </select>
+             </div>
+             <div class="col-md-3">
+               <label class="small fw-bold text-muted">Usia (Tahun)</label>
+               <div class="input-group input-group-sm">
+                 <input type="number" id="pubFilterUmurMin" class="form-control" placeholder="Min" onkeyup="applyPublicFilter()">
+                 <span class="input-group-text">-</span>
+                 <input type="number" id="pubFilterUmurMax" class="form-control" placeholder="Max" onkeyup="applyPublicFilter()">
+               </div>
+             </div>
+             <div class="col-md-2 text-end">
+               <label class="small text-muted d-block">&nbsp;</label>
+               <span class="badge bg-primary w-100 py-2">Mode Publik</span>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive bg-white rounded shadow-sm mb-4">
         <table class="table table-hover align-middle mb-0">
           <thead class="bg-light text-secondary">
             <tr>
-              <th class="ps-3">No</th><th>Nama Lengkap</th><th>NISN</th><th>Kelas</th><th>Status</th><th class="text-center">Aksi</th>
+              <th class="ps-3">No</th><th>Nama Lengkap</th><th>NISN</th><th>Kelas</th><th>L/P</th><th>Usia</th><th>Status</th><th class="text-center">Aksi</th>
             </tr>
           </thead>
           <tbody id="publicTableBody"></tbody>
         </table>
       </div>
+
+      <div class="card border-0 shadow-sm bg-light">
+        <div class="card-body">
+          <h5 class="fw-bold text-primary mb-3"><i class="fas fa-chart-pie me-2"></i>Ringkasan Data (Publik)</h5>
+          <div class="row">
+            <div class="col-md-12 mb-2">
+              <span class="fw-bold text-secondary" id="pubSumLabelFilter">Filter: Semua Data</span>
+            </div>
+            <div class="col-md-4">
+              <div class="d-flex justify-content-between align-items-center bg-white p-2 rounded border">
+                <span class="text-muted">Laki-Laki :</span>
+                <span class="fw-bold fs-5 text-primary" id="pubSumCountL">0</span>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="d-flex justify-content-between align-items-center bg-white p-2 rounded border">
+                <span class="text-muted">Perempuan :</span>
+                <span class="fw-bold fs-5 text-danger" id="pubSumCountP">0</span>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="d-flex justify-content-between align-items-center bg-white p-2 rounded border">
+                <span class="text-muted">Total Siswa :</span>
+                <span class="fw-bold fs-5 text-success" id="pubSumCountTotal">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -128,7 +202,6 @@
                  <option value="">Semua Kelas</option>
                </select>
              </div>
-             
              <div class="col-md-2">
                <label class="small fw-bold text-muted">Status</label>
                <select id="filterStatus" class="form-select form-select-sm" onchange="applyAdminFilter()">
@@ -139,7 +212,6 @@
                  <option value="Pindah">Pindah</option>
                </select>
              </div>
-
              <div class="col-md-2">
                <label class="small fw-bold text-muted">Gender</label>
                <select id="filterJK" class="form-select form-select-sm" onchange="applyAdminFilter()">
@@ -148,7 +220,6 @@
                  <option value="P">Perempuan</option>
                </select>
              </div>
-
              <div class="col-md-3">
                <label class="small fw-bold text-muted">Usia (Tahun)</label>
                <div class="input-group input-group-sm">
@@ -157,7 +228,6 @@
                  <input type="number" id="filterUmurMax" class="form-control" placeholder="Max" onkeyup="applyAdminFilter()">
                </div>
              </div>
-             
              <div class="col-md-2 text-end">
                 <button class="btn btn-primary rounded-pill btn-sm w-100" onclick="prepareAddModal()">
                   <i class="fas fa-plus me-1"></i> Tambah
@@ -182,7 +252,7 @@
 
       <div class="card border-0 shadow-sm bg-light">
         <div class="card-body">
-          <h5 class="fw-bold text-primary mb-3"><i class="fas fa-chart-pie me-2"></i>Ringkasan Data (Sesuai Filter)</h5>
+          <h5 class="fw-bold text-primary mb-3"><i class="fas fa-chart-pie me-2"></i>Ringkasan Data (Admin)</h5>
           <div class="row">
             <div class="col-md-12 mb-2">
               <span class="fw-bold text-secondary" id="sumLabelFilter">Filter: Semua Data</span>
