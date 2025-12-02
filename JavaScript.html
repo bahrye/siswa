@@ -31,7 +31,7 @@
     }
   }
 
-  // Fungsi untuk Form Input (Hanya Tahun)
+  // Fungsi Hitung Umur untuk Form Input
   function hitungUmur() {
     const dob = document.getElementById('inputTglLahir').value;
     if(dob) {
@@ -44,7 +44,7 @@
     }
   }
 
-  // Fungsi BARU untuk Display Tabel (Format: X th, Y bln)
+  // Helper Display Umur (X th, Y bln)
   function calculateAgeString(dobString) {
     if (!dobString) return "-";
     const birthDate = new Date(dobString);
@@ -53,23 +53,19 @@
     let years = today.getFullYear() - birthDate.getFullYear();
     let months = today.getMonth() - birthDate.getMonth();
     
-    // Koreksi jika belum ulang tahun di bulan ini
     if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
       years--;
       months += 12;
     }
-    
-    // Koreksi hari untuk bulan
     if (today.getDate() < birthDate.getDate()) {
       months--;
-      if(months < 0) {
-        months += 12;
-      }
+      if(months < 0) months += 12;
     }
     
     return `${years} th, ${months} bln`;
   }
   
+  // Helper Filter Umur (Tahun Saja)
   function getAgeYearOnly(dobString) {
      if (!dobString) return 0;
      const birthDate = new Date(dobString);
@@ -85,7 +81,7 @@
     if (status === 'Aktif') return 'bg-success';
     if (status === 'Lulus') return 'bg-info';
     if (status === 'Pindah') return 'bg-danger';
-    return 'bg-secondary'; // Untuk Non Aktif atau lainnya
+    return 'bg-secondary'; // Non Aktif
   }
 
   function logout() {
@@ -266,12 +262,14 @@
 
   function applyAdminFilter() {
     const fRombel = document.getElementById('filterRombel').value;
+    const fStatus = document.getElementById('filterStatus').value; // Ambil Status
     const fJK = document.getElementById('filterJK').value;
     const fMin = document.getElementById('filterUmurMin').value;
     const fMax = document.getElementById('filterUmurMax').value;
 
     const filtered = globalStudentData.filter(row => {
       const matchRombel = fRombel === "" || row.rombel == fRombel;
+      const matchStatus = fStatus === "" || row.status == fStatus; // Logic Filter Status
       const matchJK = fJK === "" || row.jk == fJK;
       
       const umurTahun = getAgeYearOnly(row.tglLahir);
@@ -280,32 +278,30 @@
       if (fMin !== "" && umurTahun < parseInt(fMin)) matchUmur = false;
       if (fMax !== "" && umurTahun > parseInt(fMax)) matchUmur = false;
 
-      return matchRombel && matchJK && matchUmur;
+      return matchRombel && matchStatus && matchJK && matchUmur;
     });
 
     renderAdminTable(filtered);
-    updateSummary(filtered, fRombel, fMin, fMax);
+    // Kirim data yang sudah difilter ke fungsi summary
+    updateSummary(filtered, fRombel, fStatus);
   }
 
-  function updateSummary(data, rombel, min, max) {
-    const lblKelas = rombel ? "Kelas : " + rombel : "Kelas : Semua Kelas";
-    document.getElementById('sumLabelClass').innerText = lblKelas;
+  // --- UPDATE SUMMARY (Total Keseluruhan Sesuai Filter) ---
+  function updateSummary(data, rombel, status) {
+    // Buat Label yang informatif
+    let labelParts = [];
+    labelParts.push(rombel ? `Kelas: ${rombel}` : "Semua Kelas");
+    if (status) labelParts.push(`Status: ${status}`);
     
-    let lblUsia = "";
-    if (min || max) {
-      const txtMin = min || "0";
-      const txtMax = max || "Max";
-      lblUsia = ` (Usia ${txtMin}-${txtMax} Tahun)`;
-    }
+    document.getElementById('sumLabelFilter').innerText = "Filter: " + labelParts.join(", ");
     
+    // Hitung Jumlah
     const countL = data.filter(d => d.jk === 'L').length;
     const countP = data.filter(d => d.jk === 'P').length;
     
-    document.getElementById('sumLabelL').innerText = `Jumlah Laki-Laki${lblUsia} :`;
-    document.getElementById('sumLabelP').innerText = `Jumlah Perempuan${lblUsia} :`;
-    
     document.getElementById('sumCountL').innerText = countL;
     document.getElementById('sumCountP').innerText = countP;
+    // Ini menampilkan Total Keseluruhan sesuai filter (misal: Kelas 7, Status Aktif -> Totalnya berapa)
     document.getElementById('sumCountTotal').innerText = data.length;
   }
 
@@ -401,7 +397,7 @@
        }
     });
     
-    // Trigger umur
+    // Trigger update
     hitungUmur();
     const statusSelect = form.elements['status'];
     if(statusSelect) statusSelect.dispatchEvent(new Event('change'));
