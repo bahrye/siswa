@@ -2,7 +2,13 @@
   let currentNpsn = "";
   let selectedNisn = "";
   let sessionSchoolID = "";
-  let globalStudentData = [];
+  
+  // Variabel Global
+  let globalStudentData = []; // Data Admin
+  let globalPublicData = [];  // Data Publik
+
+  // Variabel Cache Kode Akses (Session)
+  let cachedAccessCode = ""; 
 
   // --- NAVIGATION & UTILS ---
   function showAdminLogin() {
@@ -17,8 +23,12 @@
     document.getElementById('viewPublicList').classList.add('d-none');
     document.getElementById('viewAdminAuth').classList.add('d-none');
     document.getElementById('btnAdminLink').classList.remove('d-none');
+    
+    // Reset Data & Cache saat kembali ke menu awal
     document.getElementById('inputNpsn').value = "";
     currentNpsn = "";
+    globalPublicData = [];
+    cachedAccessCode = ""; // Hapus akses saat keluar dari halaman list
   }
   
   function toggleAuth(type) {
@@ -31,7 +41,7 @@
     }
   }
 
-  // Fungsi Hitung Umur untuk Form Input
+  // --- HELPERS ---
   function hitungUmur() {
     const dob = document.getElementById('inputTglLahir').value;
     if(dob) {
@@ -44,7 +54,6 @@
     }
   }
 
-  // Helper Display Umur (X th, Y bln)
   function calculateAgeString(dobString) {
     if (!dobString) return "-";
     const birthDate = new Date(dobString);
@@ -65,7 +74,6 @@
     return `${years} th, ${months} bln`;
   }
   
-  // Helper Filter Umur (Tahun Saja)
   function getAgeYearOnly(dobString) {
      if (!dobString) return 0;
      const birthDate = new Date(dobString);
@@ -76,12 +84,11 @@
      return age;
   }
   
-  // Helper Warna Badge
   function getStatusBadgeClass(status) {
     if (status === 'Aktif') return 'bg-success';
     if (status === 'Lulus') return 'bg-info';
     if (status === 'Pindah') return 'bg-danger';
-    return 'bg-secondary'; // Non Aktif
+    return 'bg-secondary';
   }
 
   function logout() {
@@ -89,6 +96,7 @@
     sessionSchoolID = "";
     currentNpsn = "";
     globalStudentData = [];
+    cachedAccessCode = "";
     
     document.getElementById('viewAdminDashboard').classList.add('d-none');
     document.getElementById('viewAdminAuth').classList.add('d-none'); 
@@ -101,7 +109,8 @@
     document.getElementById('adminTableBody').innerHTML = "";
   }
 
-  // --- 1. PUBLIC SEARCH ---
+  // --- 1. PUBLIC SEARCH & FILTERING ---
+  
   function searchByNPSN() {
     const npsn = document.getElementById('inputNpsn').value;
     if(!npsn) return Swal.fire('Error','Masukkan NPSN dulu','warning');
@@ -113,33 +122,104 @@
         currentNpsn = npsn;
         document.getElementById('publicSchoolName').innerText = res.namaSekolah;
         document.getElementById('publicNpsnBadge').innerText = "NPSN: " + npsn;
-        renderPublicTable(res.data);
+        
+        globalPublicData = res.data;
+        
+        // Reset Filter Dropdown
+        const uniqueRombel = [...new Set(res.data.map(item => item.rombel))].sort();
+        const selRombel = document.getElementById('pubFilterRombel');
+        selRombel.innerHTML = '<option value="">Semua Kelas</option>';
+        uniqueRombel.forEach(r => {
+          if(r) selRombel.innerHTML += `<option value="${r}">${r}</option>`;
+        });
+
         document.getElementById('viewLanding').classList.add('d-none');
         document.getElementById('viewPublicList').classList.remove('d-none');
+        applyPublicFilter(); // Render Tabel
+
       } else {
         Swal.fire('Tidak Ditemukan', res.message, 'error');
       }
     }).getSchoolByNPSN(npsn);
   }
 
+  function applyPublicFilter() {
+    const fRombel = document.getElementById('pubFilterRombel').value;
+    const fStatus = document.getElementById('pubFilterStatus').value;
+    const fJK = document.getElementById('pubFilterJK').value;
+    const fMin = document.getElementById('pubFilterUmurMin').value;
+    const fMax = document.getElementById('pubFilterUmurMax').value;
+
+    const filtered = globalPublicData.filter(row => {
+      const matchRombel = fRombel === "" || row.rombel == fRombel;
+      const matchStatus = fStatus === "" || row.status == fStatus;
+      const matchJK = fJK === "" || row.jk == fJK;
+      
+      const umurTahun = getAgeYearOnly(row.tglLahir);
+      let matchUmur = true;
+      if (fMin !== "" && umurTahun < parseInt(fMin)) matchUmur = false;
+      if (fMax !== "" && umurTahun > parseInt(fMax)) matchUmur = false;
+
+      return matchRombel && matchStatus && matchJK && matchUmur;
+    });
+
+    renderPublicTable(filtered);
+    updatePublicSummary(filtered, fRombel, fStatus);
+  }
+
+  function updatePublicSummary(data, rombel, status) {
+    let labelParts = [];
+    labelParts.push(rombel ? `Kelas: ${rombel}` : "Semua Kelas");
+    if (status) labelParts.push(`Status: ${status}`);
+    
+    document.getElementById('pubSumLabelFilter').innerText = "Filter: " + labelParts.join(", ");
+    
+    const countL = data.filter(d => d.jk === 'L').length;
+    const countP = data.filter(d => d.jk === 'P').length;
+    
+    document.getElementById('pubSumCountL').innerText = countL;
+    document.getElementById('pubSumCountP').innerText = countP;
+    document.getElementById('pubSumCountTotal').innerText = data.length;
+  }
+
   function renderPublicTable(data) {
     const tbody = document.getElementById('publicTableBody');
     tbody.innerHTML = '';
+    
     if(data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">Belum ada data.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4">Data tidak ditemukan sesuai filter.</td></tr>';
       return;
     }
+    
     data.forEach((row, index) => {
       let badge = getStatusBadgeClass(row.status);
+      let displayNISN = "";
+      let displayAge = "";
+      
+      // --- LOGIKA MASKING vs UNMASKING ---
+      if (cachedAccessCode !== "") {
+          // JIKA SUDAH PUNYA AKSES: Tampilkan DATA ASLI
+          displayNISN = `<span class="fw-bold text-dark">${row.nisn}</span>`;
+          displayAge = calculateAgeString(row.tglLahir);
+      } else {
+          // JIKA BELUM PUNYA AKSES: Tampilkan SENSOR BINTANG
+          let nisnStr = row.nisn.toString();
+          let masked = nisnStr.length > 6 ? nisnStr.substring(0, nisnStr.length - 6) + "******" : "******";
+          displayNISN = `<span class="text-muted font-monospace">${masked}</span>`;
+          displayAge = '<span class="text-muted">** Th</span>';
+      }
+
       tbody.innerHTML += `
         <tr>
           <td class="ps-3">${index + 1}</td>
           <td class="fw-bold">${row.nama}</td>
-          <td>${row.nisn}</td>
+          <td>${displayNISN}</td>
           <td>${row.rombel}</td>
+          <td>${row.jk || '-'}</td>
+          <td>${displayAge}</td>
           <td><span class="badge ${badge} status-badge">${row.status}</span></td>
           <td class="text-center">
-            <button class="btn btn-sm btn-warning text-white rounded-circle shadow-sm" onclick="promptCode('${row.nisn}')">
+            <button class="btn btn-sm btn-warning text-white rounded-circle shadow-sm" onclick="promptCode('${row.nisn}')" title="Buka Detail">
               <i class="fas fa-eye"></i>
             </button>
           </td>
@@ -150,19 +230,44 @@
   // --- 2. SECURE DETAIL VIEW ---
   function promptCode(nisn) {
     selectedNisn = nisn;
-    document.getElementById('inputAccessCode').value = "";
-    new bootstrap.Modal(document.getElementById('accessCodeModal')).show();
+    
+    // Jika Cache Kode Ada, Langsung Eksekusi tanpa Modal
+    if (cachedAccessCode !== "") {
+       executeVerification(cachedAccessCode);
+    } else {
+       document.getElementById('inputAccessCode').value = "";
+       new bootstrap.Modal(document.getElementById('accessCodeModal')).show();
+    }
   }
 
   function verifyCode() {
     const code = document.getElementById('inputAccessCode').value;
     if(code.length < 8) return Swal.fire('Error', 'Kode harus 8 karakter', 'warning');
+    
     bootstrap.Modal.getInstance(document.getElementById('accessCodeModal')).hide();
-    Swal.fire({title:'Verifikasi...', didOpen:()=>Swal.showLoading()});
+    executeVerification(code);
+  }
+  
+  function executeVerification(code) {
+    Swal.fire({title:'Memverifikasi...', didOpen:()=>Swal.showLoading()});
+    
     google.script.run.withSuccessHandler(res => {
       Swal.close();
-      if(res.success) showDetailModal(res.data);
-      else Swal.fire('Akses Ditolak', res.message, 'error');
+      if(res.success) {
+        // SUKSES: Simpan Kode & Refresh Tabel untuk Buka Sensor
+        cachedAccessCode = code; 
+        
+        // 1. Tampilkan Modal Detail Siswa yg dipilih
+        showDetailModal(res.data);
+        
+        // 2. Refresh Tabel Publik (agar bintang-bintang hilang di semua baris)
+        applyPublicFilter(); 
+
+      } else {
+        // GAGAL: Reset Cache
+        cachedAccessCode = ""; 
+        Swal.fire('Akses Ditolak', res.message, 'error');
+      }
     }).verifyAndGetDetail(currentNpsn, selectedNisn, code);
   }
 
@@ -174,12 +279,12 @@
       <div class="table-responsive">
         <table class="table table-bordered mb-0 align-middle">
           
-          <thead class="table-light"><tr><th colspan="2" class="text-primary"><i class="fas fa-user me-2"></i>Identitas Pribadi</th></tr></thead>
+          <thead class="table-light"><tr><th colspan="2" class="text-primary"><i class="fas fa-user me-2"></i>Identitas Pribadi (Terbuka)</th></tr></thead>
           <tr><td width="35%" class="text-muted fw-bold ps-3">Nama Lengkap</td><td class="fw-bold fs-5">${s.nama}</td></tr>
-          <tr><td class="text-muted fw-bold ps-3">NISN</td><td>${s.nisn}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">NISN</td><td class="fw-bold text-dark">${s.nisn} <i class="fas fa-check-circle text-success small ms-1"></i></td></tr>
           <tr><td class="text-muted fw-bold ps-3">NIK</td><td>${s.nik || '-'}</td></tr>
           <tr><td class="text-muted fw-bold ps-3">Jenis Kelamin</td><td>${s.jk === 'L' ? 'Laki-laki' : 'Perempuan'}</td></tr>
-          <tr><td class="text-muted fw-bold ps-3">TTL (Umur)</td><td>${s.tempatLahir}, ${s.tglLahir} <br><span class="badge bg-secondary">${ageDetail}</span></td></tr>
+          <tr><td class="text-muted fw-bold ps-3">TTL (Umur)</td><td>${s.tempatLahir}, ${s.tglLahir} <br><span class="badge bg-primary">${ageDetail}</span></td></tr>
           
           <thead class="table-light"><tr><th colspan="2" class="text-primary"><i class="fas fa-school me-2"></i>Data Sekolah</th></tr></thead>
           <tr><td class="text-muted fw-bold ps-3">Kelas / Rombel</td><td>${s.rombel}</td></tr>
@@ -205,7 +310,7 @@
     new bootstrap.Modal(document.getElementById('detailModal')).show();
   }
 
-  // --- 3. ADMIN LOGIC ---
+  // --- 3. ADMIN LOGIC (Standard) ---
   function handleLogin(e) {
     e.preventDefault();
     const u = document.getElementById('username').value;
@@ -241,8 +346,6 @@
     }).registrasiSekolah(document.getElementById('formRegistrasi'));
   }
 
-  // --- 4. ADMIN DASHBOARD LOGIC ---
-
   function loadAdminData() {
     Swal.fire({title:'Memuat Data...', didOpen:()=>Swal.showLoading()});
     google.script.run.withSuccessHandler(data => {
@@ -262,46 +365,36 @@
 
   function applyAdminFilter() {
     const fRombel = document.getElementById('filterRombel').value;
-    const fStatus = document.getElementById('filterStatus').value; // Ambil Status
+    const fStatus = document.getElementById('filterStatus').value;
     const fJK = document.getElementById('filterJK').value;
     const fMin = document.getElementById('filterUmurMin').value;
     const fMax = document.getElementById('filterUmurMax').value;
 
     const filtered = globalStudentData.filter(row => {
       const matchRombel = fRombel === "" || row.rombel == fRombel;
-      const matchStatus = fStatus === "" || row.status == fStatus; // Logic Filter Status
+      const matchStatus = fStatus === "" || row.status == fStatus;
       const matchJK = fJK === "" || row.jk == fJK;
-      
       const umurTahun = getAgeYearOnly(row.tglLahir);
-      
       let matchUmur = true;
       if (fMin !== "" && umurTahun < parseInt(fMin)) matchUmur = false;
       if (fMax !== "" && umurTahun > parseInt(fMax)) matchUmur = false;
-
       return matchRombel && matchStatus && matchJK && matchUmur;
     });
 
     renderAdminTable(filtered);
-    // Kirim data yang sudah difilter ke fungsi summary
     updateSummary(filtered, fRombel, fStatus);
   }
 
-  // --- UPDATE SUMMARY (Total Keseluruhan Sesuai Filter) ---
   function updateSummary(data, rombel, status) {
-    // Buat Label yang informatif
     let labelParts = [];
     labelParts.push(rombel ? `Kelas: ${rombel}` : "Semua Kelas");
     if (status) labelParts.push(`Status: ${status}`);
-    
     document.getElementById('sumLabelFilter').innerText = "Filter: " + labelParts.join(", ");
     
-    // Hitung Jumlah
     const countL = data.filter(d => d.jk === 'L').length;
     const countP = data.filter(d => d.jk === 'P').length;
-    
     document.getElementById('sumCountL').innerText = countL;
     document.getElementById('sumCountP').innerText = countP;
-    // Ini menampilkan Total Keseluruhan sesuai filter (misal: Kelas 7, Status Aktif -> Totalnya berapa)
     document.getElementById('sumCountTotal').innerText = data.length;
   }
 
@@ -397,7 +490,6 @@
        }
     });
     
-    // Trigger update
     hitungUmur();
     const statusSelect = form.elements['status'];
     if(statusSelect) statusSelect.dispatchEvent(new Event('change'));
