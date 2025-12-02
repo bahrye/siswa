@@ -27,53 +27,6 @@
 
   // Fungsi memecah nama kelas menjadi Level (Angka) dan Suffix (sisanya)
   function parseClassLevel(name) {
-    if (!name) return { level: 9999, original: "" };
-    
-    // 1. Bersihkan kata "Kelas", "Kls", dll
-    let clean = name.replace(/^(kelas|kls)\.?\s*/i, "").trim();
-    
-    // 2. Cek Angka Biasa di awal (Contoh: "10 IPA 1")
-    let matchDigit = clean.match(/^(\d+)/);
-    if (matchDigit) {
-      return {
-        level: parseInt(matchDigit[1]),
-        suffix: clean.substring(matchDigit[1].length).trim(),
-        original: name
-      };
-    }
-
-    // 3. Cek Angka Romawi di awal (Contoh: "XII IPA 1")
-    // Regex: Karakter Romawi diikuti spasi/titik/strip atau akhir string
-    let matchRoman = clean.match(/^([IVXLC]+)(?=[^a-zA-Z]|$)/i);
-    if (matchRoman) {
-      return {
-        level: decodeRoman(matchRoman[1].toUpperCase()),
-        suffix: clean.substring(matchRoman[1].length).trim(),
-        original: name
-      };
-    }
-
-    // Jika format tidak dikenali, taruh paling bawah
-    return { level: 9999, suffix: clean, original: name };
-  }
-
-  // --- CUSTOM SORTING HELPER (Updated) ---
-  
-  // 1. Helper konversi Romawi ke Angka (Contoh: X -> 10)
-  function decodeRoman(roman) {
-    const vals = {I:1, V:5, X:10, L:50, C:100};
-    let num = 0;
-    for (let i = 0; i < roman.length; i++) {
-      let curr = vals[roman[i]] || 0;
-      let next = vals[roman[i+1]] || 0;
-      if (next > curr) num -= curr;
-      else num += curr;
-    }
-    return num;
-  }
-
-  // 2. Helper memecah string kelas menjadi Level dan Suffix
-  function parseClassLevel(name) {
     if (!name) return { level: 9999, suffix: "" };
     
     // Hapus awalan umum seperti "Kelas", "Kls", dll
@@ -101,7 +54,7 @@
     return { level: 9999, suffix: clean };
   }
 
-  // 3. Fungsi Utama Pengurutan (Kelas -> Jurusan -> Nama Siswa)
+  // Fungsi Utama Pengurutan (Kelas -> Jurusan -> Nama Siswa)
   function compareDataSiswa(a, b) {
     let rA = parseClassLevel(a.rombel);
     let rB = parseClassLevel(b.rombel);
@@ -170,6 +123,8 @@
   function calculateAgeString(dobString) {
     if (!dobString) return "-";
     const birthDate = new Date(dobString);
+    if(isNaN(birthDate)) return "-"; // Validasi tanggal
+    
     const today = new Date();
     
     let years = today.getFullYear() - birthDate.getFullYear();
@@ -638,5 +593,139 @@
         loadAdminData();
       }).editSiswa(formEl);
     }
+  }
+
+  // --- 4. FITUR IMPORT EXCEL (BARU) ---
+
+  function showImportModal() {
+    document.getElementById('fileImportInput').value = "";
+    document.getElementById('importPreview').innerText = "";
+    new bootstrap.Modal(document.getElementById('importModal')).show();
+  }
+
+  // Fungsi 1: Download Template
+  function downloadTemplate() {
+    // Header sesuai permintaan
+    const headers = [
+      "No", "Nama Lengkap", "NISN", "NIK", "Tempat Lahir", 
+      "Tanggal Lahir", "Tingkat - Rombel", "Umur", "Status", 
+      "Jenis Kelamin", "Alamat", "No Telepon", "Kebutuhan Khusus", 
+      "Disabilitas", "Nomor KIP/PIP", "Nama Ayah Kandung", 
+      "Nama Ibu Kandung", "Nama Wali"
+    ];
+
+    // Data Contoh (Dummy)
+    const sampleData = [
+      {
+        "No": 1, "Nama Lengkap": "Contoh Siswa", "NISN": "1234567890", "NIK": "3201234567890001",
+        "Tempat Lahir": "Jakarta", "Tanggal Lahir": "2010-05-20", "Tingkat - Rombel": "X IPA 1",
+        "Umur": "", "Status": "Aktif", "Jenis Kelamin": "Laki-laki", 
+        "Alamat": "Jl. Contoh No. 1", "No Telepon": "'08123456789", 
+        "Kebutuhan Khusus": "-", "Disabilitas": "-", "Nomor KIP/PIP": "-",
+        "Nama Ayah Kandung": "Ayah Budi", "Nama Ibu Kandung": "Ibu Budi", "Nama Wali": "-"
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(sampleData, {header: headers});
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    
+    // Trigger Download
+    XLSX.writeFile(wb, "Template_Data_Siswa.xlsx");
+  }
+
+  // Fungsi 2: Proses Import
+  function processImportFile() {
+    const fileInput = document.getElementById('fileImportInput');
+    if(!fileInput.files.length) {
+      return Swal.fire('Error', 'Pilih file Excel terlebih dahulu', 'warning');
+    }
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type: 'array'});
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      
+      // Konversi ke JSON (raw: false agar angka tidak otomatis jadi number jika formatnya text)
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet, {raw: false});
+
+      if(jsonData.length === 0) {
+        return Swal.fire('Error', 'File kosong atau format salah', 'error');
+      }
+
+      // --- TRANSFORMASI DATA ---
+      const cleanData = jsonData.map(row => {
+        // 1. Ambil Tanggal Lahir (Format Excel biasanya teks/date object, kita harap string YYYY-MM-DD)
+        let tglLahir = row['Tanggal Lahir'] || ""; 
+        
+        // 2. Hitung Umur Otomatis (Abaikan kolom 'Umur' dari Excel)
+        let umurHitung = calculateAgeString(tglLahir); 
+
+        // 3. Format Gender (Ambil huruf depan saja, L atau P)
+        // Jika di excel "Laki-laki" -> jadi "L", jika "Perempuan" -> jadi "P"
+        let rawJK = row['Jenis Kelamin'] || "";
+        let fixJK = rawJK.trim().toUpperCase().charAt(0); 
+        if(fixJK !== 'L' && fixJK !== 'P') fixJK = ""; 
+
+        // 4. Format No Telepon (Pastikan String dan leading zero aman)
+        // Hapus kutip satu (') jika ada user yg input manual pakai kutip di excel
+        let rawTelp = row['No Telepon'] || "";
+        let fixTelp = rawTelp.toString().replace(/^'/, ""); 
+
+        return {
+          nisn: row['NISN'] ? row['NISN'].toString() : "",
+          nama: row['Nama Lengkap'] || "",
+          nik: row['NIK'] ? row['NIK'].toString() : "",
+          tempatLahir: row['Tempat Lahir'] || "",
+          tglLahir: tglLahir,
+          rombel: row['Tingkat - Rombel'] || "",
+          umur: umurHitung,
+          status: row['Status'] || "Aktif",
+          jk: fixJK,
+          alamat: row['Alamat'] || "",
+          telp: fixTelp,
+          kebKhusus: row['Kebutuhan Khusus'] || "",
+          disabilitas: row['Disabilitas'] || "",
+          kip: row['Nomor KIP/PIP'] || "",
+          ayah: row['Nama Ayah Kandung'] || "",
+          ibu: row['Nama Ibu Kandung'] || "",
+          wali: row['Nama Wali'] || ""
+        };
+      });
+
+      // Kirim ke Backend
+      sendToBackend(cleanData);
+    };
+
+    reader.readAsArrayBuffer(file);
+  }
+
+  function sendToBackend(dataSiswa) {
+    Swal.fire({
+      title: 'Mengimport Data...',
+      text: `Memproses ${dataSiswa.length} data siswa. Mohon tunggu.`,
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    const payload = {
+      sekolahID: sessionSchoolID,
+      data: dataSiswa
+    };
+
+    google.script.run.withSuccessHandler(res => {
+      Swal.close();
+      bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+      
+      if(res.status === 'success') {
+        Swal.fire('Berhasil!', res.message, 'success');
+        loadAdminData(); // Refresh Tabel Admin
+      } else {
+        Swal.fire('Gagal', res.message, 'error');
+      }
+    }).importBulkSiswa(payload);
   }
 </script>
