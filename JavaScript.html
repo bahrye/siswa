@@ -480,7 +480,14 @@
 
     data.forEach(r => {
       let badge = getStatusBadgeClass(r.status);
+      
+      // 1. Encode Data Lengkap untuk tombol View & Edit (Sudah Benar)
       const rowJson = encodeURIComponent(JSON.stringify(r));
+      
+      // 2. Encode Nama Siswa khusus untuk tombol Hapus (PERBAIKAN UTAMA)
+      // Ini akan mengubah "Ma'ruf" menjadi "Ma%27ruf" sehingga tidak merusak HTML/JS
+      const safeNama = encodeURIComponent(r.nama);
+      
       const displayAge = calculateAgeString(r.tglLahir);
 
       tbody.innerHTML += `
@@ -498,7 +505,7 @@
              <button class="btn btn-sm btn-warning text-white rounded-circle me-1" onclick="editFromAdmin('${rowJson}')" title="Edit">
                <i class="fas fa-pen"></i>
              </button>
-             <button class="btn btn-sm btn-danger rounded-circle" onclick="deleteFromAdmin('${r.nisn}', '${r.nama}')" title="Hapus">
+             <button class="btn btn-sm btn-danger rounded-circle" onclick="deleteFromAdmin('${r.nisn}', '${safeNama}')" title="Hapus">
                <i class="fas fa-trash"></i>
              </button>
           </td>
@@ -512,7 +519,10 @@
     showDetailModal(data);
   }
 
-  function deleteFromAdmin(nisn, nama) {
+  function deleteFromAdmin(nisn, encodedNama) {
+    // Decode nama agar kembali terbaca normal (misal: Ma%27ruf -> Ma'ruf)
+    const nama = decodeURIComponent(encodedNama);
+
     Swal.fire({
       title: 'Hapus Data?',
       text: `Yakin menghapus siswa: ${nama}?`,
