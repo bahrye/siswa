@@ -2,8 +2,9 @@
   let currentNpsn = "";
   let selectedNisn = "";
   let sessionSchoolID = "";
+  let globalStudentData = [];
 
-  // --- NAVIGATION LOGIC ---
+  // --- NAVIGATION & UTILS ---
   function showAdminLogin() {
     document.getElementById('viewLanding').classList.add('d-none');
     document.getElementById('viewPublicList').classList.add('d-none');
@@ -30,6 +31,7 @@
     }
   }
 
+  // Fungsi untuk Form Input (Hanya Tahun)
   function hitungUmur() {
     const dob = document.getElementById('inputTglLahir').value;
     if(dob) {
@@ -42,45 +44,73 @@
     }
   }
 
-  function logout() {
-    // 1. Tampilkan loading sebentar (opsional, untuk efek UX)
-    Swal.fire({
-      title: 'Logging out...',
-      timer: 800,
-      didOpen: () => Swal.showLoading()
-    });
+  // Fungsi BARU untuk Display Tabel (Format: X th, Y bln)
+  function calculateAgeString(dobString) {
+    if (!dobString) return "-";
+    const birthDate = new Date(dobString);
+    const today = new Date();
+    
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    
+    // Koreksi jika belum ulang tahun di bulan ini
+    if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+      years--;
+      months += 12;
+    }
+    
+    // Koreksi hari untuk bulan
+    if (today.getDate() < birthDate.getDate()) {
+      months--;
+      if(months < 0) {
+        months += 12;
+      }
+    }
+    
+    return `${years} th, ${months} bln`;
+  }
+  
+  function getAgeYearOnly(dobString) {
+     if (!dobString) return 0;
+     const birthDate = new Date(dobString);
+     const today = new Date();
+     let age = today.getFullYear() - birthDate.getFullYear();
+     const m = today.getMonth() - birthDate.getMonth();
+     if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+     return age;
+  }
+  
+  // Helper Warna Badge
+  function getStatusBadgeClass(status) {
+    if (status === 'Aktif') return 'bg-success';
+    if (status === 'Lulus') return 'bg-info';
+    if (status === 'Pindah') return 'bg-danger';
+    return 'bg-secondary'; // Untuk Non Aktif atau lainnya
+  }
 
-    // 2. Reset Variabel Sesi
+  function logout() {
+    Swal.fire({ title: 'Logging out...', timer: 800, didOpen: () => Swal.showLoading() });
     sessionSchoolID = "";
     currentNpsn = "";
-    selectedNisn = "";
-
-    // 3. Reset Tampilan (Sembunyikan Dashboard Admin)
+    globalStudentData = [];
+    
     document.getElementById('viewAdminDashboard').classList.add('d-none');
     document.getElementById('viewAdminAuth').classList.add('d-none'); 
-    
-    // 4. Kembalikan ke Tampilan Awal (Landing Page)
     document.getElementById('viewLanding').classList.remove('d-none');
-    document.getElementById('viewPublicList').classList.add('d-none');
-
-    // 5. Reset Tombol Navbar
     document.getElementById('btnLogout').classList.add('d-none');
     document.getElementById('btnAdminLink').classList.remove('d-none');
-
-    // 6. Bersihkan Form Login dan Tabel (Agar bersih saat login ulang)
+    
     document.getElementById('username').value = "";
     document.getElementById('password').value = "";
     document.getElementById('adminTableBody').innerHTML = "";
-    document.getElementById('inputNpsn').value = "";
   }
 
-  // --- 1. PUBLIC SEARCH (NPSN) ---
+  // --- 1. PUBLIC SEARCH ---
   function searchByNPSN() {
     const npsn = document.getElementById('inputNpsn').value;
     if(!npsn) return Swal.fire('Error','Masukkan NPSN dulu','warning');
     
     Swal.fire({title:'Mencari Sekolah...', didOpen:()=>Swal.showLoading()});
-    
     google.script.run.withSuccessHandler(res => {
       Swal.close();
       if(res.found) {
@@ -99,14 +129,12 @@
   function renderPublicTable(data) {
     const tbody = document.getElementById('publicTableBody');
     tbody.innerHTML = '';
-    
     if(data.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">Belum ada data.</td></tr>';
       return;
     }
-
     data.forEach((row, index) => {
-      let badge = row.status === 'Aktif' ? 'bg-success' : 'bg-secondary';
+      let badge = getStatusBadgeClass(row.status);
       tbody.innerHTML += `
         <tr>
           <td class="ps-3">${index + 1}</td>
@@ -133,12 +161,8 @@
   function verifyCode() {
     const code = document.getElementById('inputAccessCode').value;
     if(code.length < 8) return Swal.fire('Error', 'Kode harus 8 karakter', 'warning');
-
-    const modal = bootstrap.Modal.getInstance(document.getElementById('accessCodeModal'));
-    modal.hide();
-
+    bootstrap.Modal.getInstance(document.getElementById('accessCodeModal')).hide();
     Swal.fire({title:'Verifikasi...', didOpen:()=>Swal.showLoading()});
-
     google.script.run.withSuccessHandler(res => {
       Swal.close();
       if(res.success) showDetailModal(res.data);
@@ -147,17 +171,40 @@
   }
 
   function showDetailModal(s) {
+    let badge = getStatusBadgeClass(s.status);
+    const ageDetail = calculateAgeString(s.tglLahir);
+    
     const html = `
       <div class="table-responsive">
-      <table class="table table-striped table-borderless mb-0">
-        <tr><th class="ps-4 w-35 text-muted">Nama</th><td class="fw-bold">${s.nama}</td></tr>
-        <tr><th class="ps-4 text-muted">NISN/NIK</th><td>${s.nisn} <br><small>${s.nik}</small></td></tr>
-        <tr><th class="ps-4 text-muted">TTL</th><td>${s.tempatLahir}, ${s.tglLahir} (${s.umur} th)</td></tr>
-        <tr><th class="ps-4 text-muted">Kelas</th><td>${s.rombel} <span class="badge bg-primary ms-2">${s.status}</span></td></tr>
-        <tr><td colspan="2"><hr class="my-1"></td></tr>
-        <tr><th class="ps-4 text-muted">Ortu</th><td>Ayah: ${s.ayah}<br>Ibu: ${s.ibu}</td></tr>
-        <tr><th class="ps-4 text-muted">Alamat</th><td>${s.alamat}</td></tr>
-      </table></div>`;
+        <table class="table table-bordered mb-0 align-middle">
+          
+          <thead class="table-light"><tr><th colspan="2" class="text-primary"><i class="fas fa-user me-2"></i>Identitas Pribadi</th></tr></thead>
+          <tr><td width="35%" class="text-muted fw-bold ps-3">Nama Lengkap</td><td class="fw-bold fs-5">${s.nama}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">NISN</td><td>${s.nisn}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">NIK</td><td>${s.nik || '-'}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">Jenis Kelamin</td><td>${s.jk === 'L' ? 'Laki-laki' : 'Perempuan'}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">TTL (Umur)</td><td>${s.tempatLahir}, ${s.tglLahir} <br><span class="badge bg-secondary">${ageDetail}</span></td></tr>
+          
+          <thead class="table-light"><tr><th colspan="2" class="text-primary"><i class="fas fa-school me-2"></i>Data Sekolah</th></tr></thead>
+          <tr><td class="text-muted fw-bold ps-3">Kelas / Rombel</td><td>${s.rombel}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">Status Siswa</td><td><span class="badge ${badge} rounded-pill px-3">${s.status}</span></td></tr>
+          
+          <thead class="table-light"><tr><th colspan="2" class="text-primary"><i class="fas fa-file-medical me-2"></i>Data Tambahan</th></tr></thead>
+          <tr><td class="text-muted fw-bold ps-3">Nomor KIP</td><td>${s.kip || '-'}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">Kebutuhan Khusus</td><td>${s.kebKhusus || '-'}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">Disabilitas</td><td>${s.disabilitas || '-'}</td></tr>
+          
+          <thead class="table-light"><tr><th colspan="2" class="text-primary"><i class="fas fa-map-marker-alt me-2"></i>Alamat & Kontak</th></tr></thead>
+          <tr><td class="text-muted fw-bold ps-3">Alamat Lengkap</td><td>${s.alamat}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">No. Telepon</td><td>${s.telp || '-'}</td></tr>
+          
+          <thead class="table-light"><tr><th colspan="2" class="text-primary"><i class="fas fa-users me-2"></i>Orang Tua / Wali</th></tr></thead>
+          <tr><td class="text-muted fw-bold ps-3">Nama Ayah</td><td>${s.ayah || '-'}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">Nama Ibu</td><td>${s.ibu || '-'}</td></tr>
+          <tr><td class="text-muted fw-bold ps-3">Nama Wali</td><td>${s.wali || '-'}</td></tr>
+        </table>
+      </div>`;
+      
     document.getElementById('detailContent').innerHTML = html;
     new bootstrap.Modal(document.getElementById('detailModal')).show();
   }
@@ -167,7 +214,6 @@
     e.preventDefault();
     const u = document.getElementById('username').value;
     const p = document.getElementById('password').value;
-    
     Swal.fire({title:'Login...', didOpen:()=>Swal.showLoading()});
     
     google.script.run.withSuccessHandler(res => {
@@ -199,26 +245,195 @@
     }).registrasiSekolah(document.getElementById('formRegistrasi'));
   }
 
+  // --- 4. ADMIN DASHBOARD LOGIC ---
+
   function loadAdminData() {
+    Swal.fire({title:'Memuat Data...', didOpen:()=>Swal.showLoading()});
     google.script.run.withSuccessHandler(data => {
-      const tbody = document.getElementById('adminTableBody');
-      tbody.innerHTML = '';
-      data.forEach(r => {
-        tbody.innerHTML += `<tr><td>${r.nisn}</td><td>${r.nama}</td><td>${r.rombel}</td><td>${r.status}</td></tr>`;
+      Swal.close();
+      globalStudentData = data;
+      
+      const uniqueRombel = [...new Set(data.map(item => item.rombel))].sort();
+      const selRombel = document.getElementById('filterRombel');
+      selRombel.innerHTML = '<option value="">Semua Kelas</option>';
+      uniqueRombel.forEach(r => {
+        if(r) selRombel.innerHTML += `<option value="${r}">${r}</option>`;
       });
+
+      applyAdminFilter();
     }).getDataSiswa(sessionSchoolID);
   }
 
-  function handleAddStudent(e) {
+  function applyAdminFilter() {
+    const fRombel = document.getElementById('filterRombel').value;
+    const fJK = document.getElementById('filterJK').value;
+    const fMin = document.getElementById('filterUmurMin').value;
+    const fMax = document.getElementById('filterUmurMax').value;
+
+    const filtered = globalStudentData.filter(row => {
+      const matchRombel = fRombel === "" || row.rombel == fRombel;
+      const matchJK = fJK === "" || row.jk == fJK;
+      
+      const umurTahun = getAgeYearOnly(row.tglLahir);
+      
+      let matchUmur = true;
+      if (fMin !== "" && umurTahun < parseInt(fMin)) matchUmur = false;
+      if (fMax !== "" && umurTahun > parseInt(fMax)) matchUmur = false;
+
+      return matchRombel && matchJK && matchUmur;
+    });
+
+    renderAdminTable(filtered);
+    updateSummary(filtered, fRombel, fMin, fMax);
+  }
+
+  function updateSummary(data, rombel, min, max) {
+    const lblKelas = rombel ? "Kelas : " + rombel : "Kelas : Semua Kelas";
+    document.getElementById('sumLabelClass').innerText = lblKelas;
+    
+    let lblUsia = "";
+    if (min || max) {
+      const txtMin = min || "0";
+      const txtMax = max || "Max";
+      lblUsia = ` (Usia ${txtMin}-${txtMax} Tahun)`;
+    }
+    
+    const countL = data.filter(d => d.jk === 'L').length;
+    const countP = data.filter(d => d.jk === 'P').length;
+    
+    document.getElementById('sumLabelL').innerText = `Jumlah Laki-Laki${lblUsia} :`;
+    document.getElementById('sumLabelP').innerText = `Jumlah Perempuan${lblUsia} :`;
+    
+    document.getElementById('sumCountL').innerText = countL;
+    document.getElementById('sumCountP').innerText = countP;
+    document.getElementById('sumCountTotal').innerText = data.length;
+  }
+
+  function renderAdminTable(data) {
+    const tbody = document.getElementById('adminTableBody');
+    tbody.innerHTML = '';
+    
+    if(data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Data tidak ditemukan.</td></tr>';
+      document.getElementById('tableCounter').innerText = "";
+      return;
+    }
+
+    data.forEach(r => {
+      let badge = getStatusBadgeClass(r.status);
+      const rowJson = encodeURIComponent(JSON.stringify(r));
+      const displayAge = calculateAgeString(r.tglLahir);
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${r.nisn}</td>
+          <td class="fw-bold">${r.nama}</td>
+          <td>${r.jk}</td>
+          <td>${displayAge}</td>
+          <td>${r.rombel}</td>
+          <td><span class="badge ${badge} status-badge">${r.status}</span></td>
+          <td class="text-center">
+             <button class="btn btn-sm btn-info text-white rounded-circle me-1" onclick="viewFromAdmin('${rowJson}')" title="Detail">
+               <i class="fas fa-eye"></i>
+             </button>
+             <button class="btn btn-sm btn-warning text-white rounded-circle me-1" onclick="editFromAdmin('${rowJson}')" title="Edit">
+               <i class="fas fa-pen"></i>
+             </button>
+             <button class="btn btn-sm btn-danger rounded-circle" onclick="deleteFromAdmin('${r.nisn}', '${r.nama}')" title="Hapus">
+               <i class="fas fa-trash"></i>
+             </button>
+          </td>
+        </tr>`;
+    });
+    document.getElementById('tableCounter').innerText = `Menampilkan ${data.length} siswa`;
+  }
+
+  function viewFromAdmin(jsonStr) {
+    const data = JSON.parse(decodeURIComponent(jsonStr));
+    showDetailModal(data);
+  }
+
+  function deleteFromAdmin(nisn, nama) {
+    Swal.fire({
+      title: 'Hapus Data?',
+      text: `Yakin menghapus siswa: ${nama}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Ya, Hapus!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        Swal.fire({title:'Menghapus...', didOpen:()=>Swal.showLoading()});
+        google.script.run.withSuccessHandler(res => {
+          Swal.close();
+          if(res.status === 'success') {
+            Swal.fire('Terhapus!', res.message, 'success');
+            loadAdminData();
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).hapusSiswa(sessionSchoolID, nisn);
+      }
+    });
+  }
+
+  function prepareAddModal() {
+    document.getElementById('addStudentForm').reset();
+    document.getElementById('formMode').value = "add";
+    document.getElementById('formSekolahID').value = sessionSchoolID;
+    document.querySelector('#addModal .modal-title').innerText = "Input Data Siswa Baru";
+    new bootstrap.Modal(document.getElementById('addModal')).show();
+  }
+
+  function editFromAdmin(jsonStr) {
+    const data = JSON.parse(decodeURIComponent(jsonStr));
+    const form = document.getElementById('addStudentForm');
+    
+    document.getElementById('formMode').value = "edit";
+    document.getElementById('oldNisn').value = data.nisn;
+    document.getElementById('formSekolahID').value = sessionSchoolID;
+    document.querySelector('#addModal .modal-title').innerText = "Edit Data Siswa";
+
+    const keys = Object.keys(data);
+    keys.forEach(key => {
+       if(form.elements[key]) {
+         form.elements[key].value = data[key];
+       }
+    });
+    
+    // Trigger umur
+    hitungUmur();
+    const statusSelect = form.elements['status'];
+    if(statusSelect) statusSelect.dispatchEvent(new Event('change'));
+
+    new bootstrap.Modal(document.getElementById('addModal')).show();
+  }
+
+  function handleSaveStudent(e) {
     e.preventDefault();
-    bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
+    const mode = document.getElementById('formMode').value;
+    const modalEl = document.getElementById('addModal');
+    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+    
+    modalInstance.hide();
     Swal.fire({title:'Menyimpan...', didOpen:()=>Swal.showLoading()});
     
-    google.script.run.withSuccessHandler(res => {
-      Swal.close();
-      Swal.fire('Berhasil', res, 'success');
-      document.getElementById('addStudentForm').reset();
-      loadAdminData();
-    }).tambahSiswa(document.getElementById('addStudentForm'));
+    const formEl = document.getElementById('addStudentForm');
+
+    if (mode === 'add') {
+       google.script.run.withSuccessHandler(res => {
+        Swal.close();
+        Swal.fire('Berhasil', res, 'success');
+        formEl.reset();
+        loadAdminData();
+      }).tambahSiswa(formEl);
+    } else {
+       google.script.run.withSuccessHandler(res => {
+        Swal.close();
+        Swal.fire('Berhasil Update', res, 'success');
+        formEl.reset();
+        loadAdminData();
+      }).editSiswa(formEl);
+    }
   }
 </script>
