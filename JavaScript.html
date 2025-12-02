@@ -42,7 +42,37 @@
     }
   }
 
-  function logout() { location.reload(); }
+  function logout() {
+    // 1. Tampilkan loading sebentar (opsional, untuk efek UX)
+    Swal.fire({
+      title: 'Logging out...',
+      timer: 800,
+      didOpen: () => Swal.showLoading()
+    });
+
+    // 2. Reset Variabel Sesi
+    sessionSchoolID = "";
+    currentNpsn = "";
+    selectedNisn = "";
+
+    // 3. Reset Tampilan (Sembunyikan Dashboard Admin)
+    document.getElementById('viewAdminDashboard').classList.add('d-none');
+    document.getElementById('viewAdminAuth').classList.add('d-none'); 
+    
+    // 4. Kembalikan ke Tampilan Awal (Landing Page)
+    document.getElementById('viewLanding').classList.remove('d-none');
+    document.getElementById('viewPublicList').classList.add('d-none');
+
+    // 5. Reset Tombol Navbar
+    document.getElementById('btnLogout').classList.add('d-none');
+    document.getElementById('btnAdminLink').classList.remove('d-none');
+
+    // 6. Bersihkan Form Login dan Tabel (Agar bersih saat login ulang)
+    document.getElementById('username').value = "";
+    document.getElementById('password').value = "";
+    document.getElementById('adminTableBody').innerHTML = "";
+    document.getElementById('inputNpsn').value = "";
+  }
 
   // --- 1. PUBLIC SEARCH (NPSN) ---
   function searchByNPSN() {
