@@ -268,7 +268,7 @@
       // --- LOGIKA MASKING vs UNMASKING ---
       if (cachedAccessCode !== "") {
           // JIKA SUDAH PUNYA AKSES: Tampilkan DATA ASLI
-          displayNISN = `<span class="text-dark">${row.nisn}</span>`;
+          displayNISN = `<span class="text-dark font-monospace">${row.nisn}</span>`;
           displayAge = calculateAgeString(row.tglLahir);
       } else {
           // JIKA BELUM PUNYA AKSES: Tampilkan SENSOR BINTANG
@@ -491,7 +491,7 @@
 
       tbody.innerHTML += `
         <tr>
-          <td>${r.nisn}</td>
+          <td class="font-monospace">${r.nisn}</td>
           <td class="fw-bold">${r.nama}</td>
           <td>${r.jk}</td>
           <td>${displayAge}</td>
