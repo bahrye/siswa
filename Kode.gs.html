@@ -1,0 +1,171 @@
+/**
+ * APLIKASI DATABASE SISWA MULTI-SEKOLAH (SaaS Mini)
+ * Fitur: Login, Register NPSN, CRUD Siswa, Pencarian Publik
+ */
+
+function doGet() {
+  return HtmlService.createTemplateFromFile('Index')
+      .evaluate()
+      .setTitle('EduData Pro - Portal Sekolah')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// --- 1. OTENTIKASI (LOGIN & REGISTER) ---
+
+function loginAdmin(username, password) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Admin');
+  const data = sheet.getDataRange().getValues();
+  
+  // Loop data admin (skip header)
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == username && data[i][1] == password) {
+      return { 
+        status: 'success', 
+        sekolahID: data[i][2], 
+        namaSekolah: data[i][3] 
+      };
+    }
+  }
+  return { status: 'failed' };
+}
+
+function registrasiSekolah(form) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Admin');
+  const data = sheet.getDataRange().getValues();
+  
+  // Validasi Input
+  if(form.regNpsn == "" || form.regNama == "" || form.regUser == "" || form.regPass == ""){
+    return { status: 'error', message: 'Semua kolom wajib diisi!' };
+  }
+
+  // Cek Duplikasi Username & NPSN
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == form.regUser) return { status: 'error', message: 'Username sudah dipakai.' };
+    if (data[i][4] == form.regNpsn) return { status: 'error', message: 'NPSN sudah terdaftar.' };
+  }
+
+  // Generate ID Unik (SCH + Timestamp)
+  const uniqueID = "SCH-" + new Date().getTime().toString().substr(-6);
+
+  // Simpan Sekolah Baru
+  sheet.appendRow([
+    form.regUser,     // A: Username
+    form.regPass,     // B: Password
+    uniqueID,         // C: SekolahID
+    form.regNama,     // D: Nama Sekolah
+    "'" + form.regNpsn // E: NPSN (String)
+  ]);
+
+  return { status: 'success', message: 'Pendaftaran Berhasil! Silakan Login.' };
+}
+
+// --- 2. MANAJEMEN DATA SISWA ---
+
+function getDataSiswa(sekolahID) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('DataSiswa');
+  const data = sheet.getDataRange().getValues();
+  const result = [];
+  
+  // Filter berdasarkan SekolahID (Kolom Index 17)
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][17] == sekolahID) { 
+      result.push({
+        nisn: data[i][0],
+        nama: data[i][1],
+        nik: data[i][2],
+        tempatLahir: data[i][3],
+        tglLahir: mapDate(data[i][4]), // Format tanggal YYYY-MM-DD
+        rombel: data[i][5],
+        umur: data[i][6],
+        status: data[i][7],
+        jk: data[i][8],
+        alamat: data[i][9],
+        telp: data[i][10],
+        kebKhusus: data[i][11],
+        disabilitas: data[i][12],
+        kip: data[i][13],
+        ayah: data[i][14],
+        ibu: data[i][15],
+        wali: data[i][16]
+      });
+    }
+  }
+  return result;
+}
+
+function tambahSiswa(f) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('DataSiswa');
+  
+  // Tambahkan kutip (') pada angka panjang (NISN/NIK) agar tidak jadi scientific notation
+  sheet.appendRow([
+    "'" + f.nisn,
+    f.nama,
+    "'" + f.nik,
+    f.tempatLahir,
+    f.tglLahir,
+    f.rombel,
+    f.umur,
+    f.status,
+    f.jk,
+    f.alamat,
+    f.telp,
+    f.kebKhusus,
+    f.disabilitas,
+    f.kip,
+    f.ayah,
+    f.ibu,
+    f.wali,
+    f.sekolahID // ID Sekolah otomatis dari session
+  ]);
+  
+  return "Data Siswa Berhasil Disimpan!";
+}
+
+// --- 3. PENCARIAN PUBLIK ---
+
+function cariSiswaPublik(nisn) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('DataSiswa');
+  const data = sheet.getDataRange().getValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == nisn) { // Cek NISN
+      return {
+        found: true,
+        nama: data[i][1],
+        rombel: data[i][5],
+        status: data[i][7],
+        sekolah: getNamaSekolah(data[i][17])
+      };
+    }
+  }
+  return { found: false };
+}
+
+// Helper: Ambil Nama Sekolah by ID
+function getNamaSekolah(id) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Admin');
+  const data = sheet.getDataRange().getValues();
+  for(let i=1; i<data.length; i++){
+    if(data[i][2] == id) return data[i][3];
+  }
+  return "Tidak Diketahui";
+}
+
+// Helper: Format Tanggal untuk HTML Input Date
+function mapDate(dateObj) {
+  if (!dateObj) return "";
+  try {
+    const d = new Date(dateObj);
+    // Mengatasi zona waktu, ambil YYYY-MM-DD
+    const offset = d.getTimezoneOffset();
+    const yourDate = new Date(d.getTime() - (offset*60*1000));
+    return yourDate.toISOString().split('T')[0];
+  } catch(e) { return dateObj; }
+}
