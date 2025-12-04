@@ -44,4 +44,30 @@
     font-size: 1.2rem; font-weight: bold; letter-spacing: 2px;
     padding: 10px; border-radius: 10px; display: inline-block;
   }
+
+  /* FLOATING ACTION BAR */
+  .floating-action-bar {
+    position: fixed;
+    bottom: 30px;         /* Jarak dari bawah layar */
+    left: 50%;            /* Posisi tengah horizontal */
+    transform: translateX(-50%); /* Penyesuaian agar benar-benar di tengah */
+    z-index: 9999;        /* Pastikan di atas semua elemen */
+    
+    background: white;
+    padding: 12px 25px;
+    border-radius: 50px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2); /* Efek bayangan agar kontras */
+    border: 1px solid rgba(0,0,0,0.08);
+    
+    display: flex;
+    align-items: center;
+    gap: 15px;            /* Jarak antar elemen di dalam bar */
+    
+    animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes slideUp {
+    from { bottom: -100px; opacity: 0; }
+    to { bottom: 30px; opacity: 1; }
+  }
 </style>
