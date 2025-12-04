@@ -248,6 +248,9 @@
         <table class="table table-hover align-middle mb-0">
           <thead class="bg-light">
             <tr>
+              <th class="text-center" style="width: 40px;">
+                <input type="checkbox" id="checkAll" class="form-check-input" onclick="toggleSelectAll()">
+              </th>
               <th>NISN</th><th>Nama</th><th>L/P</th><th>Usia (Detail)</th><th>Kelas</th><th>Status</th>
               <th class="text-center" style="width: 140px;">Aksi</th>
             </tr>
@@ -289,6 +292,23 @@
     </div>
   </div>
 
+</div>
+
+<div id="bulkActionBar" class="floating-action-bar d-none">
+  
+  <div class="d-flex align-items-center text-secondary border-end pe-3 me-2">
+    <i class="fas fa-check-circle text-success me-2 fs-5"></i>
+    <span class="fw-bold"><span id="countSelectedFloat">0</span> Siswa</span>
+  </div>
+
+  <button class="btn btn-light btn-sm rounded-pill fw-bold text-muted border" onclick="cancelSelection()">
+    <i class="fas fa-times me-1"></i> Batal
+  </button>
+
+  <button class="btn btn-danger btn-sm rounded-pill fw-bold shadow-sm px-3" onclick="handleBulkDelete()">
+    <i class="fas fa-trash-alt me-1"></i> Hapus Terpilih
+  </button>
+  
 </div>
 
 <div class="modal fade" id="accessCodeModal" tabindex="-1">
