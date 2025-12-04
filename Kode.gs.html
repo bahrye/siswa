@@ -233,6 +233,37 @@ function hapusSiswa(sekolahID, nisn) {
   } catch(e) { return {status: 'error', message: "Gagal: " + e.message}; }
 }
 
+function hapusSiswaBulk(sekolahID, nisnList) {
+  const dbId = getSchoolDbId(sekolahID);
+  if (!dbId) return {status: 'error', message: "Database tidak ditemukan."};
+
+  try {
+    const targetSS = SpreadsheetApp.openById(dbId);
+    const sheet = targetSS.getSheetByName('DataSiswa');
+    const data = sheet.getDataRange().getValues();
+    let deletedCount = 0;
+
+    // Loop dari bawah ke atas agar aman saat deleteRow
+    for (let i = data.length - 1; i >= 1; i--) {
+      // Cek apakah NISN baris ini ada di dalam list yang mau dihapus
+      // String() digunakan untuk memastikan tipe data sama
+      if (nisnList.includes(String(data[i][0]).replace(/^'/, ''))) { 
+        sheet.deleteRow(i + 1);
+        deletedCount++;
+      }
+    }
+
+    if (deletedCount > 0) {
+      return {status: 'success', message: `Berhasil menghapus ${deletedCount} siswa.`};
+    } else {
+      return {status: 'error', message: "Tidak ada data yang cocok untuk dihapus."};
+    }
+
+  } catch(e) {
+    return {status: 'error', message: "Gagal: " + e.message};
+  }
+}
+
 function editSiswa(f) {
   const dbId = getSchoolDbId(f.sekolahID);
   if (!dbId) return "Error: Database tidak ditemukan.";
