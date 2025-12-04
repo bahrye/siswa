@@ -555,25 +555,28 @@
     const tbody = document.getElementById('adminTableBody');
     tbody.innerHTML = '';
     
+    // Reset Checkbox Header setiap kali render ulang
+    document.getElementById('checkAll').checked = false;
+    updateBulkDeleteButton(); // Sembunyikan tombol hapus
+
     if(data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Data tidak ditemukan.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Data tidak ditemukan.</td></tr>'; // colspan jadi 8
       document.getElementById('tableCounter').innerText = "";
       return;
     }
 
     data.forEach(r => {
       let badge = getStatusBadgeClass(r.status);
-      
-      // 1. Encode Data Lengkap untuk tombol View & Edit (PERBAIKAN: Escape kutip satu)
       const rowJson = encodeURIComponent(JSON.stringify(r)).replace(/'/g, "%27");
-
-      // 2. Encode Nama Siswa khusus untuk tombol Hapus (PERBAIKAN: Escape kutip satu juga)
       const safeNama = encodeURIComponent(r.nama).replace(/'/g, "%27");
-      
       const displayAge = calculateAgeString(r.tglLahir);
 
+      // Tambahkan Kolom Checkbox di awal (td pertama)
       tbody.innerHTML += `
         <tr>
+          <td class="text-center">
+             <input type="checkbox" class="form-check-input check-item" value="${r.nisn}" onchange="updateBulkDeleteButton()">
+          </td>
           <td class="font-monospace">${r.nisn}</td>
           <td class="fw-bold">${r.nama}</td>
           <td>${r.jk}</td>
@@ -820,4 +823,83 @@
       }
     }).importBulkSiswa(payload);
   }
+
+  // --- FITUR BULK DELETE (FLOATING) ---
+
+  // 1. Fungsi Select All / Deselect All
+  function toggleSelectAll() {
+    const isChecked = document.getElementById('checkAll').checked;
+    const checkboxes = document.querySelectorAll('.check-item');
+    checkboxes.forEach(cb => {
+      cb.checked = isChecked;
+    });
+    updateBulkDeleteButton();
+  }
+
+  // 2. Update visibilitas Floating Bar
+  function updateBulkDeleteButton() {
+    const checkedCount = document.querySelectorAll('.check-item:checked').length;
+    const actionBar = document.getElementById('bulkActionBar');
+    const labelCount = document.getElementById('countSelectedFloat');
+    
+    // Update angka
+    labelCount.innerText = checkedCount;
+    
+    if (checkedCount > 0) {
+      actionBar.classList.remove('d-none'); // Munculkan Bar
+    } else {
+      actionBar.classList.add('d-none'); // Sembunyikan Bar
+    }
+  }
+
+  // 3. Fungsi Batal (Reset Seleksi)
+  function cancelSelection() {
+    // Uncheck header
+    document.getElementById('checkAll').checked = false;
+    
+    // Uncheck semua baris
+    const checkboxes = document.querySelectorAll('.check-item');
+    checkboxes.forEach(cb => {
+      cb.checked = false;
+    });
+
+    // Sembunyikan bar
+    updateBulkDeleteButton();
+  }
+
+  // 4. Eksekusi Hapus Massal
+  function handleBulkDelete() {
+    const checkedBoxes = document.querySelectorAll('.check-item:checked');
+    if (checkedBoxes.length === 0) return;
+
+    // Ambil list NISN
+    const nisnList = Array.from(checkedBoxes).map(cb => cb.value);
+
+    Swal.fire({
+      title: 'Hapus ' + nisnList.length + ' Siswa?',
+      text: "Data yang ditandai akan dihapus permanen! Tindakan ini tidak bisa dibatalkan.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Ya, Hapus Semua!',
+      cancelButtonText: 'Batal'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        Swal.fire({title:'Menghapus Data...', didOpen:()=>Swal.showLoading()});
+        
+        google.script.run.withSuccessHandler(res => {
+          Swal.close();
+          if(res.status === 'success') {
+            Swal.fire('Terhapus!', res.message, 'success');
+            cancelSelection(); // Reset checkbox
+            loadAdminData();   // Refresh tabel
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).hapusSiswaBulk(sessionSchoolID, nisnList);
+      }
+    });
+  }
+  
 </script>
